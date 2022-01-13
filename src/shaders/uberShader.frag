@@ -1,0 +1,68 @@
+#version 300 es
+precision highp float;
+
+-- DEFINES_HOOK --
+
+in vec4 vNormal;
+in vec2 vUv;
+
+#ifdef USE_UV_TRANSFORM
+  in vec4 vInstanceUvOffsets;
+  in vec2 vImageSize;
+#endif
+
+out vec4 finalColor;
+
+const float FACE_COUNT = 6.0;
+const float FACE_STEP = 1.0 / FACE_COUNT;
+const float FACE_STEP2 = FACE_STEP * 2.0;
+
+#ifdef USE_TEXTURE
+  uniform sampler2D diffuse;
+#endif
+
+vec2 mapVec2Range(vec2 value, vec2 inMin, vec2 inMax, vec2 outMin, vec2 outMax) {
+  return outMin + (outMax - outMin) * (value - inMin) / (inMax - inMin);
+}
+
+vec2 uvTransformBackgroundCover (vec2 uv, vec2 imageSize, vec2 displaySize) {
+  float rs = displaySize.x / displaySize.y;
+  float ri = imageSize.x / imageSize.y;
+  vec2 new = rs < ri ? vec2(imageSize.x * displaySize.y / imageSize.y, displaySize.y) : vec2(displaySize.x, imageSize.y * displaySize.x / imageSize.x);
+  vec2 offset = (rs < ri ? vec2((new.x - displaySize.x) / 2.0, 0.0) : vec2(0.0, (new.y - displaySize.y) / 2.0)) / new;
+  return uv * displaySize / new + offset;
+}
+
+ 
+void main () {
+  vec2 uv = vec2(0.0);
+  #ifdef IS_CUBE
+    float faceStep = 1.0 / FACE_COUNT;
+    if (vUv.x > FACE_STEP && vUv.x < FACE_STEP2) {
+      uv = mapVec2Range(vUv, vec2(FACE_STEP), vec2(FACE_STEP2), vec2(0.0), vec2(1.0));
+      #ifdef USE_BACKGROUND_SIZE_COVER
+        uv = uvTransformBackgroundCover(uv, vImageSize, vec2(2.0, 1.0));
+      #endif
+      uv = mix(
+        vInstanceUvOffsets.xy,
+        vInstanceUvOffsets.zw,
+        uv
+      );
+    }
+  #else
+    // uv = mix(vInstanceUvOffsets.xy, vInstanceUvOffsets.zw, vUv);
+  #endif
+  #ifdef USE_SOLID_COLOR
+    finalColor = vec4(1.0, 0.0, 0.0, 1.0);
+  #else
+    #ifdef USE_TEXTURE
+      finalColor = texture(diffuse, uv);
+    #else
+      finalColor = vec4(vUv, 0.0, 1.0);
+    #endif
+    // if (vUv.x >= uvStep && vUv.x < uvStep * 2.0) {
+    //   finalColor = vec4(1.0, 0.0, 0.0, 1.0);
+    // }
+  #endif
+  finalColor.a *= 1.0;
+}
