@@ -1,8 +1,5 @@
 import { Project } from './types'
-import BoxStructure from './box-structure'
 import store from './store'
-
-store.getState()
 
 import TextureManager from './texture-manager'
 import RaycastLine from './meshes/raycast-line'
@@ -11,16 +8,15 @@ import './style.css'
 
 import {
   getXYZForViewIdxWithinLevel,
-  sortProjectEntriesByType,
   sortProjectEntriesByYear,
   transformProjectEntries,
-} from './helpers/helpers'
+} from './helpers'
 
-import { BoxLabels } from './debug/box-labels'
 import { setIsHovering, setMousePos } from './store/ui'
 import { setProjects } from './store/projects'
 import View from './view'
 import ProjectThumb from './meshes/project-thumb'
+
 import {
   CameraController,
   createPlane,
@@ -86,78 +82,75 @@ const { verticesNormalUv, indices } = createPlane({
   width: innerWidth,
   height: innerHeight,
 })
-const planeProgram = createProgram(
-  gl,
-  `#version 300 es
-  uniform mat4 projectionViewMatrix;
-  
-  in vec4 aPosition;
-  in vec2 aUv;
+// const planeProgram = createProgram(
+//   gl,
+//   `#version 300 es
+//   uniform mat4 projectionViewMatrix;
 
-  out vec2 vUv;
+//   in vec4 aPosition;
+//   in vec2 aUv;
 
-  void main () {
-    gl_Position = projectionViewMatrix * aPosition;
+//   out vec2 vUv;
 
-    vUv = aUv;
-  }
-`,
-  `#version 300 es
-  precision highp float;
+//   void main () {
+//     gl_Position = projectionViewMatrix * aPosition;
 
-  in vec2 vUv;
+//     vUv = aUv;
+//   }
+// `,
+//   `#version 300 es
+//   precision highp float;
 
-  out vec4 finalColor;
+//   in vec2 vUv;
 
-  void main () {
-    finalColor = vec4(vUv, 0.0, 1.0);
-  }
-`,
-)
+//   out vec4 finalColor;
 
-const aPositionLoc = gl.getAttribLocation(planeProgram, 'aPosition')
-const aUvLoc = gl.getAttribLocation(planeProgram, 'aUv')
-const projectionViewMatrixLoc = gl.getUniformLocation(
-  planeProgram,
-  'projectionViewMatrix',
-)
+//   void main () {
+//     finalColor = vec4(vUv, 0.0, 1.0);
+//   }
+// `,
+// )
 
-const planeInterleavedBuffer = gl.createBuffer()
-const indexBuffer = gl.createBuffer()
+// const aPositionLoc = gl.getAttribLocation(planeProgram, 'aPosition')
+// const aUvLoc = gl.getAttribLocation(planeProgram, 'aUv')
+// const projectionViewMatrixLoc = gl.getUniformLocation(
+//   planeProgram,
+//   'projectionViewMatrix',
+// )
 
-const vao = gl.createVertexArray()
-gl.bindVertexArray(vao)
+// const planeInterleavedBuffer = gl.createBuffer()
+// const indexBuffer = gl.createBuffer()
 
-gl.bindBuffer(gl.ARRAY_BUFFER, planeInterleavedBuffer)
-gl.bufferData(gl.ARRAY_BUFFER, verticesNormalUv, gl.STATIC_DRAW)
+// const vao = gl.createVertexArray()
+// gl.bindVertexArray(vao)
 
-gl.enableVertexAttribArray(aPositionLoc)
-gl.vertexAttribPointer(
-  aPositionLoc,
-  3,
-  gl.FLOAT,
-  false,
-  5 * Float32Array.BYTES_PER_ELEMENT,
-  0,
-)
+// gl.bindBuffer(gl.ARRAY_BUFFER, planeInterleavedBuffer)
+// gl.bufferData(gl.ARRAY_BUFFER, verticesNormalUv, gl.STATIC_DRAW)
 
-gl.enableVertexAttribArray(aUvLoc)
-gl.vertexAttribPointer(
-  aUvLoc,
-  2,
-  gl.FLOAT,
-  false,
-  5 * Float32Array.BYTES_PER_ELEMENT,
-  3 * Float32Array.BYTES_PER_ELEMENT,
-)
+// gl.enableVertexAttribArray(aPositionLoc)
+// gl.vertexAttribPointer(
+//   aPositionLoc,
+//   3,
+//   gl.FLOAT,
+//   false,
+//   5 * Float32Array.BYTES_PER_ELEMENT,
+//   0,
+// )
 
-gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer)
-gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW)
+// gl.enableVertexAttribArray(aUvLoc)
+// gl.vertexAttribPointer(
+//   aUvLoc,
+//   2,
+//   gl.FLOAT,
+//   false,
+//   5 * Float32Array.BYTES_PER_ELEMENT,
+//   3 * Float32Array.BYTES_PER_ELEMENT,
+// )
 
-gl.bindVertexArray(null)
+// gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer)
+// gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW)
 
-let boxStructure: BoxStructure
-let boxDebugLabels: BoxLabels
+// gl.bindVertexArray(null)
 
 fetch('http://localhost:3001/api')
   .then((projects) => projects.json())
@@ -172,7 +165,7 @@ fetch('http://localhost:3001/api')
 
     const projectsNode = new View(gl, { geometry, uid: 'projects' })
 
-    const drawProgramToGetUBOFrom = projectsNode.children[0].program
+    const drawProgramToGetUBOFrom = projectsNode.sampleProgram
     const blockIndex = gl.getUniformBlockIndex(
       drawProgramToGetUBOFrom,
       'Camera',
@@ -226,14 +219,10 @@ fetch('http://localhost:3001/api')
     console.log(rootSceneNode)
 
     rootSceneNode.traverse((node, depthLevel) => {
-      for (let i = 0; i < node.children.length; i++) {
-        const childNode = node.children[i]
-        if (childNode instanceof ProjectThumb) {
-          continue
-        }
+      node.iterateChildren((childNode, i) => {
         const position = getXYZForViewIdxWithinLevel(i, depthLevel)
         childNode.setPosition(position)
-      }
+      })
     })
 
     rootSceneNode.updateWorldMatrix()
@@ -241,8 +230,8 @@ fetch('http://localhost:3001/api')
 
 const geometry = createRoundedBox({ radius: 0.1 })
 
-let oldActiveViewUID = ''
-let showChildrenRow = true
+// let oldActiveViewUID = ''
+// let showChildrenRow = true
 store.subscribe(async () => {
   const state = store.getState()
   const {
@@ -299,23 +288,16 @@ function onMouseClick(e: MouseEvent) {
       showChildRow = false
       const childrenVisible = hitView.children[0].visible
       console.log('clicked on same item ' + childrenVisible)
-      for (let i = 0; i < hitView.children.length; i++) {
-        const child = hitView.children[i]
-        if (child instanceof ProjectThumb) {
-          continue
-        }
+      hitView.iterateChildren((child) => {
         if (childrenVisible) {
           child.hide()
         } else {
           child.reveal()
         }
         child.updateModelMatrix()
-      }
+      })
     } else {
       rootSceneNode.traverse((view) => {
-        if (!(child instanceof View) || child instanceof ProjectThumb) {
-          return
-        }
         if (view.levelIndex > hitView?.levelIndex) {
           view.hide()
           view.updateModelMatrix()
@@ -325,15 +307,10 @@ function onMouseClick(e: MouseEvent) {
   }
 
   if (showChildRow && hitView && currLevel >= prevLevel) {
-    for (let i = 0; i < hitView.children.length; i++) {
-      const child = hitView.children[i]
-      if (child instanceof ProjectThumb) {
-        continue
-      }
-      // console.log(child.uid)
-      child instanceof View && child.reveal()
+    hitView.iterateChildren((child) => {
+      child.reveal()
       child.updateWorldMatrix()
-    }
+    })
   }
   prevView = hitView
 
@@ -385,10 +362,6 @@ function updateFrame(ts: DOMHighResTimeStamp) {
   // gl.blendFunc(gl.SRC_COLOR, gl.DST_ALPHA)
   // gl.depthMask(false)
   // gl.cullFace(gl.FRONT_AND_BACK)
-
-  if (boxStructure) {
-    boxStructure.render(perspectiveCamera, ts)
-  }
 
   raycastLines.forEach((rayLine) => rayLine.render(perspectiveCamera))
 

@@ -1,7 +1,9 @@
 import { vec3 } from 'gl-matrix'
-import { BoundingBox, Renderable } from '../lib/hwoa-rang-gl2/dist'
+import { BoundingBox } from '../lib/hwoa-rang-gl2/dist'
+import { GeometryProps } from '../types'
+import Drawable from './drawable'
 
-export default class ProjectThumb extends Renderable {
+export default class ProjectThumb extends Drawable {
   boundingBox: BoundingBox
 
   get AABB(): BoundingBox {
@@ -13,7 +15,7 @@ export default class ProjectThumb extends Renderable {
   }
 
   constructor(gl: WebGL2RenderingContext, { geometry }: GeometryProps) {
-    super(gl, geometry.vertexCount, {
+    super(gl, {
       USE_SHADING: true,
       USE_MODEL_MATRIX: true,
     })
@@ -25,7 +27,10 @@ export default class ProjectThumb extends Renderable {
       height,
       depth,
       vertexStride,
+      vertexCount,
     } = geometry
+
+    this.vertexCount = vertexCount
 
     this.boundingBox = {
       min: vec3.fromValues(-width / 2, -height / 2, -depth / 2),

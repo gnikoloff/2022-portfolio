@@ -1,9 +1,10 @@
 import { vec3 } from 'gl-matrix'
-import { PerspectiveCamera, Renderable } from '../lib/hwoa-rang-gl2/dist'
+import { PerspectiveCamera } from '../lib/hwoa-rang-gl2/dist'
+import Drawable from './drawable'
 
-export default class RaycastLine extends Renderable {
+export default class RaycastLine extends Drawable {
   constructor(gl: WebGL2RenderingContext, startVec3: vec3, endVec3: vec3) {
-    super(gl, 2, {
+    super(gl, {
       USE_SOLID_COLOR: true,
     })
 
@@ -23,15 +24,15 @@ export default class RaycastLine extends Renderable {
     gl.bindVertexArray(null)
   }
 
-  render(camera: PerspectiveCamera) {
+  render() {
     const gl = this.gl
     gl.useProgram(this.drawProgram)
     gl.bindVertexArray(this.vao)
-    gl.uniformMatrix4fv(
-      this.viewProjectionMatrixLocation,
-      false,
-      camera.projectionViewMatrix,
-    )
+    // gl.uniformMatrix4fv(
+    //   this.viewProjectionMatrixLocation,
+    //   false,
+    //   camera.projectionViewMatrix,
+    // )
     gl.drawArrays(gl.LINES, 0, 2)
     gl.bindVertexArray(null)
   }

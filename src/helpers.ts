@@ -4,8 +4,8 @@ import {
   LAYOUT_ITEMS_PER_ROW,
   LAYOUT_LEVEL_Y_OFFSET,
   LAYOUT_LEVEL_Z_OFFSET,
-} from '../constants'
-import { Project, ProjectGroup } from '../types'
+} from './constants'
+import { Project, ProjectGroup } from './types'
 
 /**
  *
@@ -74,13 +74,7 @@ export const getXYZForViewIdxWithinLevel = (
   optionalOffset?: vec3,
 ): vec3 => {
   const itemsPerRow = LAYOUT_ITEMS_PER_ROW
-  // const itemsPerRow =
-  //   totalViewsCount < LAYOUT_ITEMS_PER_ROW
-  //     ? totalViewsCount
-  //     : LAYOUT_ITEMS_PER_ROW
   const rowWidth = LAYOUT_COLUMN_MAX_WIDTH
-
-  // const rowsAvailable = Math.round(totalViewsCount / itemsPerRow)
 
   const normX = viewIdx % itemsPerRow
   const normY = ((viewIdx - normX) / itemsPerRow) * -1

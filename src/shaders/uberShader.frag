@@ -64,5 +64,4 @@ void main () {
     //   finalColor = vec4(1.0, 0.0, 0.0, 1.0);
     // }
   #endif
-  finalColor.a *= 1.0;
 }

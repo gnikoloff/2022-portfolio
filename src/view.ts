@@ -3,19 +3,31 @@ import ProjectThumb from './meshes/project-thumb'
 import { ViewProps } from './types'
 
 export default class View extends SceneNode {
-  uid: string
   visible = false
 
   get AABB(): BoundingBox {
-    const projectThumb = this.children[0] as ProjectThumb
+    const projectThumb = this.children[0].children[0] as ProjectThumb
     return projectThumb.AABB
   }
 
+  get sampleProgram(): WebGLProgram {
+    return this.children[0].children[0].program
+  }
+
+  get childrenWrapperNode(): View {
+    return this.children[1]
+  }
+
   constructor(gl: WebGL2RenderingContext, { geometry, uid }: ViewProps) {
-    super()
-    this.uid = uid
+    super(uid)
+    const meshWrapperNode = new SceneNode('mesh-wrapper')
+    meshWrapperNode.traversable = false
     const projectThumb = new ProjectThumb(gl, { geometry })
-    projectThumb.setParent(this)
+    projectThumb.setParent(meshWrapperNode)
+    meshWrapperNode.setParent(this)
+
+    // const viewContainerNode = new SceneNode('view-wrapper')
+    // viewContainerNode.setParent(this)
   }
 
   reveal() {
