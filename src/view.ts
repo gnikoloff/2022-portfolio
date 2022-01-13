@@ -30,8 +30,9 @@ export default class View extends SceneNode {
     projectThumb.setParent(meshWrapperNode)
   }
 
-  reveal() {
-    this.setScale([1, 1, 1])
+  reveal(scaleX = 1, scaleY = 1, scaleZ = 1) {
+    console.log(scaleX, scaleY, scaleZ)
+    this.setScale([scaleX, scaleY, scaleZ])
     this.visible = true
   }
 

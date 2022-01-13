@@ -33,6 +33,7 @@ import {
 } from './lib/hwoa-rang-gl2/dist'
 import RoundCube from './meshes/round-cube'
 import { vec3 } from 'gl-matrix'
+import Tween from './lib/hwoa-rang-anim/src/tween'
 
 let prevView!: View
 
@@ -50,6 +51,10 @@ $canvas.height = innerHeight * devicePixelRatio
 $canvas.style.setProperty('width', `${innerWidth}px`)
 $canvas.style.setProperty('height', `${innerHeight}px`)
 $app.appendChild($canvas)
+
+// setInterval(() => {
+//   tween.start()
+// }, 2000)
 
 const gl: WebGL2RenderingContext = $canvas.getContext('webgl2')!
 
@@ -283,11 +288,17 @@ function onMouseClick(e: MouseEvent) {
   }
 
   if (showChildRow && hitView && currLevel >= prevLevel) {
-    hitView.iterateChildren((child) => {
-      const view = child as View
-      view.reveal()
-      view.updateWorldMatrix()
-    })
+    new Tween({
+      durationMS: 1000,
+      easeName: 'bounce_In',
+      onUpdate: (v) => {
+        hitView.iterateChildren((child) => {
+          const view = child as View
+          view.reveal(v, v, v)
+          view.updateWorldMatrix()
+        })
+      },
+    }).start()
   }
   prevView = hitView
   if (hitView) {
