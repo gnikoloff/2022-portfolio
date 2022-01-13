@@ -1,3 +1,4 @@
+import { vec4 } from 'gl-matrix'
 import { Action } from 'redux'
 import { RoundBoxGeometry } from './lib/hwoa-rang-gl2/dist'
 
@@ -30,11 +31,12 @@ export interface ProjectGroup {
   [key: string]: Project[]
 }
 
-export interface GeometryProps {
+export interface RoundCubeProps {
   geometry: RoundBoxGeometry
+  solidColor?: vec4
 }
 
-export interface ViewProps extends GeometryProps {
+export interface ViewProps extends RoundCubeProps {
   uid: string
 }
 

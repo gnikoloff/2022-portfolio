@@ -1,5 +1,4 @@
 import { vec3 } from 'gl-matrix'
-import { PerspectiveCamera } from '../lib/hwoa-rang-gl2/dist'
 import Drawable from './drawable'
 
 export default class RaycastLine extends Drawable {
@@ -12,6 +11,14 @@ export default class RaycastLine extends Drawable {
       this.drawProgram,
       'aPosition',
     )
+
+    const solidColorUniformLocation = gl.getUniformLocation(
+      this.drawProgram,
+      'solidColor',
+    )
+    gl.useProgram(this.drawProgram)
+    gl.uniform4f(solidColorUniformLocation, 1, 0, 0, 1)
+    gl.useProgram(null)
 
     const vertices = new Float32Array([...startVec3, ...endVec3])
     const vertexBuffer = gl.createBuffer()
@@ -28,11 +35,6 @@ export default class RaycastLine extends Drawable {
     const gl = this.gl
     gl.useProgram(this.drawProgram)
     gl.bindVertexArray(this.vao)
-    // gl.uniformMatrix4fv(
-    //   this.viewProjectionMatrixLocation,
-    //   false,
-    //   camera.projectionViewMatrix,
-    // )
     gl.drawArrays(gl.LINES, 0, 2)
     gl.bindVertexArray(null)
   }

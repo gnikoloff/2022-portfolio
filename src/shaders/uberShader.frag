@@ -6,6 +6,14 @@ precision highp float;
 in vec4 vNormal;
 in vec2 vUv;
 
+#ifdef USE_SOLID_COLOR
+  uniform vec4 solidColor;
+#endif
+
+#ifdef USE_TEXTURE
+  uniform sampler2D diffuse;
+#endif
+
 #ifdef USE_UV_TRANSFORM
   in vec4 vInstanceUvOffsets;
   in vec2 vImageSize;
@@ -16,10 +24,6 @@ out vec4 finalColor;
 const float FACE_COUNT = 6.0;
 const float FACE_STEP = 1.0 / FACE_COUNT;
 const float FACE_STEP2 = FACE_STEP * 2.0;
-
-#ifdef USE_TEXTURE
-  uniform sampler2D diffuse;
-#endif
 
 vec2 mapVec2Range(vec2 value, vec2 inMin, vec2 inMax, vec2 outMin, vec2 outMax) {
   return outMin + (outMax - outMin) * (value - inMin) / (inMax - inMin);
@@ -53,7 +57,7 @@ void main () {
     // uv = mix(vInstanceUvOffsets.xy, vInstanceUvOffsets.zw, vUv);
   #endif
   #ifdef USE_SOLID_COLOR
-    finalColor = vec4(1.0, 0.0, 0.0, 1.0);
+    finalColor = solidColor;
   #else
     #ifdef USE_TEXTURE
       finalColor = texture(diffuse, uv);

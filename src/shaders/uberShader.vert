@@ -6,6 +6,10 @@ uniform Camera {
   mat4 projectionViewMatrix;
 };
 
+uniform T {
+  int a;
+};
+
 uniform mat4 modelMatrix;
 uniform float time;
 

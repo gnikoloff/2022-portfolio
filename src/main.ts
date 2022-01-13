@@ -1,7 +1,7 @@
 import { Project } from './types'
 import store from './store'
 
-import TextureManager from './texture-manager'
+import TextureManager from './lib/hwoa-rang-gl2/src/extra/mega-texture'
 import RaycastLine from './meshes/raycast-line'
 
 import './style.css'
@@ -15,7 +15,6 @@ import {
 import { setIsHovering, setMousePos } from './store/ui'
 import { setProjects } from './store/projects'
 import View from './view'
-import ProjectThumb from './meshes/project-thumb'
 
 import {
   CameraController,
@@ -28,12 +27,20 @@ import {
   deg2Rad,
   intersectRayWithAABB,
   projectMouseToWorldSpace,
+  createAndBindUBOToBase,
+  createUniformBlockInfo,
+  UBOInfo,
 } from './lib/hwoa-rang-gl2/dist'
+import RoundCube from './meshes/round-cube'
+import { vec3 } from 'gl-matrix'
 
 let prevView!: View
 
 const raycastLines: RaycastLine[] = []
-const rootSceneNode = new SceneNode()
+
+const rootNode = new SceneNode()
+const boxesRootNode = new SceneNode()
+boxesRootNode.setParent(rootNode)
 
 const $app = document.getElementById('app')!
 
@@ -46,8 +53,8 @@ $app.appendChild($canvas)
 
 const gl: WebGL2RenderingContext = $canvas.getContext('webgl2')!
 
-const uboBuffer = gl.createBuffer()
-const uboVariableInfo = {}
+let uboCamera: WebGLBuffer
+let uboCameraBlockInfo: UBOInfo
 
 TextureManager.debugMode = true
 TextureManager.textureSize = [gl.MAX_TEXTURE_SIZE, gl.MAX_TEXTURE_SIZE]
@@ -157,55 +164,23 @@ fetch('http://localhost:3001/api')
   .then(transformProjectEntries)
   .then((projects: Project[]) => {
     store.dispatch(setProjects(projects))
-
     const projectsByYear = sortProjectEntriesByYear(projects)
-    // const projectsByType = sortProjectEntriesByType(projects)
-    // const rootView = createViews(gl, projectsByYear)
-    // rootView.setParent(rootSceneNode)
-
     const projectsNode = new View(gl, { geometry, uid: 'projects' })
 
     const drawProgramToGetUBOFrom = projectsNode.sampleProgram
-    const blockIndex = gl.getUniformBlockIndex(
+    uboCameraBlockInfo = createUniformBlockInfo(
+      gl,
       drawProgramToGetUBOFrom,
       'Camera',
+      ['projectionViewMatrix'],
     )
-    const blockSize = gl.getActiveUniformBlockParameter(
-      drawProgramToGetUBOFrom,
-      blockIndex,
-      gl.UNIFORM_BLOCK_DATA_SIZE,
-    )
-
-    gl.bindBuffer(gl.UNIFORM_BUFFER, uboBuffer)
-    gl.bufferData(gl.UNIFORM_BUFFER, blockSize, gl.DYNAMIC_DRAW)
-    gl.bindBuffer(gl.UNIFORM_BUFFER, null)
-    gl.bindBufferBase(gl.UNIFORM_BUFFER, 0, uboBuffer)
-
-    const uboVariableNames = ['projectionViewMatrix']
-
-    const uboVariableIndices = gl.getUniformIndices(
-      drawProgramToGetUBOFrom,
-      uboVariableNames,
-    )!
-
-    const uboVariableOffsets = gl.getActiveUniforms(
-      drawProgramToGetUBOFrom,
-      uboVariableIndices,
-      gl.UNIFORM_OFFSET,
-    )
-
-    for (let i = 0; i < uboVariableNames.length; i++) {
-      uboVariableInfo[uboVariableNames[i]] = {
-        index: uboVariableIndices[i],
-        offset: uboVariableOffsets[i],
-      }
-    }
+    uboCamera = createAndBindUBOToBase(gl, uboCameraBlockInfo.blockSize, 0)!
 
     projectsNode.reveal()
     const aboutNode = new View(gl, { geometry, uid: 'about' })
     aboutNode.reveal()
-    projectsNode.setParent(rootSceneNode)
-    aboutNode.setParent(rootSceneNode)
+    projectsNode.setParent(boxesRootNode)
+    aboutNode.setParent(boxesRootNode)
     for (const [key, projects] of Object.entries(projectsByYear)) {
       const yearNode = new View(gl, { geometry, uid: key })
       yearNode.setParent(projectsNode)
@@ -216,30 +191,34 @@ fetch('http://localhost:3001/api')
       }
     }
 
-    console.log(rootSceneNode)
+    console.log(boxesRootNode)
 
-    rootSceneNode.traverse((node, depthLevel) => {
+    boxesRootNode.traverse((node, depthLevel) => {
       node.iterateChildren((childNode, i) => {
         const position = getXYZForViewIdxWithinLevel(i, depthLevel)
         childNode.setPosition(position)
       })
     })
 
-    rootSceneNode.updateWorldMatrix()
+    rootNode.updateWorldMatrix()
   })
 
 const geometry = createRoundedBox({ radius: 0.1 })
+const hoverCube = new RoundCube(gl, { geometry, solidColor: [0, 0, 1, 1] })
+hoverCube.setPosition([-1, 0, 0])
+hoverCube.setScale([1.05, 1.05, 1.05])
+hoverCube.setParent(rootNode)
 
 // let oldActiveViewUID = ''
 // let showChildrenRow = true
-store.subscribe(async () => {
-  const state = store.getState()
-  const {
-    views: { activeViewUID },
-  } = state
+// store.subscribe(async () => {
+//   const state = store.getState()
+//   const {
+//     views: { activeViewUID },
+//   } = state
 
-  return
-})
+//   return
+// })
 document.body.addEventListener('mousemove', onMouseMove)
 document.body.addEventListener('click', onMouseClick)
 requestAnimationFrame(updateFrame)
@@ -258,8 +237,8 @@ function onMouseClick(e: MouseEvent) {
 
   let prevRayTimeSample = Infinity // better name?
   let hitView!: View
-  rootSceneNode.traverse((child) => {
-    if (!(child instanceof View || child instanceof ProjectThumb)) {
+  boxesRootNode.traverse((child) => {
+    if (!(child instanceof View)) {
       return
     }
     if (!child.visible) {
@@ -267,7 +246,6 @@ function onMouseClick(e: MouseEvent) {
     }
 
     const [t, hit] = intersectRayWithAABB(child.AABB, rayStart, rayDirection)
-    // console.log(hit)
     if (hit) {
       if (t < prevRayTimeSample) {
         prevRayTimeSample = t
@@ -276,31 +254,29 @@ function onMouseClick(e: MouseEvent) {
     }
   })
 
-  console.log(hitView)
-
   const prevLevel = prevView?.levelIndex || 0
   const currLevel = hitView?.levelIndex
 
-  let showChildRow = true
+  let showChildRow = hitView?.open
 
   if (prevView) {
     if (prevView.uid === hitView?.uid) {
-      showChildRow = false
-      const childrenVisible = hitView.children[0].visible
-      console.log('clicked on same item ' + childrenVisible)
       hitView.iterateChildren((child) => {
-        if (childrenVisible) {
-          child.hide()
+        const view = child as View
+        if (showChildRow) {
+          view.reveal()
         } else {
-          child.reveal()
+          view.hide()
         }
         child.updateModelMatrix()
       })
     } else {
-      rootSceneNode.traverse((view) => {
+      boxesRootNode.traverse((child) => {
+        const view = child as View
         if (view.levelIndex > hitView?.levelIndex) {
           view.hide()
           view.updateModelMatrix()
+          view.open = false
         }
       })
     }
@@ -308,11 +284,15 @@ function onMouseClick(e: MouseEvent) {
 
   if (showChildRow && hitView && currLevel >= prevLevel) {
     hitView.iterateChildren((child) => {
-      child.reveal()
-      child.updateWorldMatrix()
+      const view = child as View
+      view.reveal()
+      view.updateWorldMatrix()
     })
   }
   prevView = hitView
+  if (hitView) {
+    hitView.open = !showChildRow
+  }
 
   // console.log({ hitIdx })
 
@@ -335,12 +315,12 @@ function updateFrame(ts: DOMHighResTimeStamp) {
   gl.clearColor(0.1, 0.1, 0.1, 1.0)
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 
-  if (uboVariableInfo.projectionViewMatrix) {
-    gl.bindBuffer(gl.UNIFORM_BUFFER, uboBuffer)
+  if (uboCamera) {
+    gl.bindBuffer(gl.UNIFORM_BUFFER, uboCamera)
     gl.bufferSubData(
       gl.UNIFORM_BUFFER,
-      uboVariableInfo.projectionViewMatrix.offset,
-      perspectiveCamera.projectionViewMatrix,
+      uboCameraBlockInfo.uniforms.projectionViewMatrix.offset,
+      perspectiveCamera.projectionViewMatrix as ArrayBufferView,
       0,
     )
     gl.bindBuffer(gl.UNIFORM_BUFFER, null)
@@ -356,7 +336,14 @@ function updateFrame(ts: DOMHighResTimeStamp) {
   //   boxDebugLabels.render(perspectiveCamera)
   // }
 
-  rootSceneNode.render()
+  boxesRootNode.render()
+
+  gl.enable(gl.CULL_FACE)
+  gl.cullFace(gl.FRONT)
+  hoverCube.updateWorldMatrix()
+  hoverCube.render()
+
+  gl.disable(gl.CULL_FACE)
 
   // gl.enable(gl.BLEND)
   // gl.blendFunc(gl.SRC_COLOR, gl.DST_ALPHA)
@@ -374,8 +361,25 @@ function updateFrame(ts: DOMHighResTimeStamp) {
     [normX, normY],
     perspectiveCamera,
   )
-  let rayIsHit!: boolean
-  rootSceneNode.traverse((child) => {
+  // let rayIsHit!: boolean
+  // boxesRootNode.traverse((child) => {
+  //   if (!(child instanceof View)) {
+  //     return
+  //   }
+  //   if (!child.visible) {
+  //     return
+  //   }
+
+  //   const [t, hit] = intersectRayWithAABB(child.AABB, rayStart, rayDirection)
+  //   if (hit) {
+  //     rayIsHit = hit
+  //     return
+  //   }
+  // })
+
+  let prevRayTimeSample = Infinity // better name?
+  let hitView!: View
+  boxesRootNode.traverse((child) => {
     if (!(child instanceof View)) {
       return
     }
@@ -385,11 +389,20 @@ function updateFrame(ts: DOMHighResTimeStamp) {
 
     const [t, hit] = intersectRayWithAABB(child.AABB, rayStart, rayDirection)
     if (hit) {
-      rayIsHit = hit
-      return
+      if (t < prevRayTimeSample) {
+        prevRayTimeSample = t
+        hitView = child
+      }
     }
   })
-  store.dispatch(setIsHovering(rayIsHit))
+
+  if (hitView) {
+    hoverCube.setPosition(hitView.position)
+  } else {
+    hoverCube.setPosition([100, 100, 100])
+  }
+
+  store.dispatch(setIsHovering(!!hitView))
 
   // gl.useProgram(planeProgram)
   // gl.bindVertexArray(vao)

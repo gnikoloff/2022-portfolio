@@ -1,33 +1,33 @@
 import { BoundingBox, SceneNode } from './lib/hwoa-rang-gl2/dist'
-import ProjectThumb from './meshes/project-thumb'
+import RoundCube from './meshes/round-cube'
 import { ViewProps } from './types'
 
 export default class View extends SceneNode {
   visible = false
+  open = true
 
   get AABB(): BoundingBox {
-    const projectThumb = this.children[0].children[0] as ProjectThumb
-    return projectThumb.AABB
+    const projectThumb = this.findChild((child) =>
+      child instanceof RoundCube ? child : null,
+    ) as RoundCube
+    return projectThumb?.AABB
   }
 
   get sampleProgram(): WebGLProgram {
-    return this.children[0].children[0].program
-  }
-
-  get childrenWrapperNode(): View {
-    return this.children[1]
+    const projectThumb = this.findChild((child) =>
+      child instanceof RoundCube ? child : null,
+    ) as RoundCube
+    return projectThumb.program
   }
 
   constructor(gl: WebGL2RenderingContext, { geometry, uid }: ViewProps) {
     super(uid)
     const meshWrapperNode = new SceneNode('mesh-wrapper')
     meshWrapperNode.traversable = false
-    const projectThumb = new ProjectThumb(gl, { geometry })
-    projectThumb.setParent(meshWrapperNode)
     meshWrapperNode.setParent(this)
 
-    // const viewContainerNode = new SceneNode('view-wrapper')
-    // viewContainerNode.setParent(this)
+    const projectThumb = new RoundCube(gl, { geometry })
+    projectThumb.setParent(meshWrapperNode)
   }
 
   reveal() {

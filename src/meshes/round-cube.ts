@@ -3,7 +3,7 @@ import { BoundingBox } from '../lib/hwoa-rang-gl2/dist'
 import { GeometryProps } from '../types'
 import Drawable from './drawable'
 
-export default class ProjectThumb extends Drawable {
+export default class RoundCube extends Drawable {
   boundingBox: BoundingBox
 
   get AABB(): BoundingBox {
@@ -14,11 +14,16 @@ export default class ProjectThumb extends Drawable {
     return { min, max }
   }
 
-  constructor(gl: WebGL2RenderingContext, { geometry }: GeometryProps) {
-    super(gl, {
+  constructor(
+    gl: WebGL2RenderingContext,
+    { geometry, solidColor }: GeometryProps,
+  ) {
+    const defines = {
       USE_SHADING: true,
       USE_MODEL_MATRIX: true,
-    })
+      USE_SOLID_COLOR: !!solidColor,
+    }
+    super(gl, defines)
 
     const {
       interleavedArray,
@@ -43,6 +48,22 @@ export default class ProjectThumb extends Drawable {
     const aPositionLoc = gl.getAttribLocation(this.drawProgram, 'aPosition')
     const aNormalLoc = gl.getAttribLocation(this.drawProgram, 'aNormal')
     const aUvLoc = gl.getAttribLocation(this.drawProgram, 'aUv')
+
+    if (solidColor) {
+      const solidColorUniformLocation = gl.getUniformLocation(
+        this.drawProgram,
+        'solidColor',
+      )
+      gl.useProgram(this.drawProgram)
+      gl.uniform4f(
+        solidColorUniformLocation,
+        solidColor[0],
+        solidColor[1],
+        solidColor[2],
+        solidColor[3],
+      )
+      gl.useProgram(null)
+    }
 
     gl.bindVertexArray(this.vao)
 
@@ -86,8 +107,6 @@ export default class ProjectThumb extends Drawable {
 
   render(): void {
     const gl = this.gl
-
-    // console.log(this.worldMatrix)
 
     gl.uniformBlockBinding(this.drawProgram, this.cameraUBOIndex, 0)
     gl.useProgram(this.drawProgram)
