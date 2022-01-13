@@ -1,6 +1,6 @@
-import SceneNode from './core/scene-node'
+import { BoundingBox, SceneNode } from './lib/hwoa-rang-gl2/dist'
 import ProjectThumb from './meshes/project-thumb'
-import { BoundingBox, ViewProps } from './types'
+import { ViewProps } from './types'
 
 export default class View extends SceneNode {
   uid: string

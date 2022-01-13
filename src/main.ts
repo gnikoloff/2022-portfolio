@@ -1,19 +1,9 @@
-import { BoundingBox, Project } from './types'
-import PerspectiveCamera from './cameras/perspective-camera'
-import CameraController from './cameras/camera-controller'
+import { Project } from './types'
 import BoxStructure from './box-structure'
 import store from './store'
 
 store.getState()
 
-import {
-  deg2Rad,
-  intersectRayWithAABB,
-  projectMouseToWorldSpace,
-} from './helpers/math'
-import { createPlane } from './helpers/create-plane'
-import { createProgram } from './core/create-program'
-import OrthographicCamera from './cameras/orthographic-camera'
 import TextureManager from './texture-manager'
 import RaycastLine from './meshes/raycast-line'
 
@@ -29,10 +19,20 @@ import {
 import { BoxLabels } from './debug/box-labels'
 import { setIsHovering, setMousePos } from './store/ui'
 import { setProjects } from './store/projects'
-import SceneNode from './core/scene-node'
-import { createRoundedBox } from './helpers/create-round-box'
 import View from './view'
 import ProjectThumb from './meshes/project-thumb'
+import {
+  CameraController,
+  createPlane,
+  createProgram,
+  createRoundedBox,
+  OrthographicCamera,
+  PerspectiveCamera,
+  SceneNode,
+  deg2Rad,
+  intersectRayWithAABB,
+  projectMouseToWorldSpace,
+} from './lib/hwoa-rang-gl2/dist'
 
 let prevView!: View
 

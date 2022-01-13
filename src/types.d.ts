@@ -1,42 +1,9 @@
-import { mat4, vec3 } from 'gl-matrix'
 import { Action } from 'redux'
-import SceneNode from './core/scene-node'
-
-export type traverseCallback = (node: SceneNode, depthLevel: number) => void
+import { RoundBoxGeometry } from './lib/hwoa-rang-gl2/dist'
 
 export interface UBOVariable {
   offset: number
   index: number
-}
-
-export interface RoundBox {
-  width?: number
-  height?: number
-  depth?: number
-  radius?: number
-  div?: number
-}
-
-export interface RoundBoxGeometry {
-  width: number
-  height: number
-  depth: number
-  vertexCount: number
-  vertexStride: number
-  interleavedArray: Float32Array
-  indicesArray: Int16Array
-}
-
-export interface Plane {
-  width?: number
-  height?: number
-  widthSegments?: number
-  heightSegments?: number
-}
-
-export interface BoundingBox {
-  min: vec3
-  max: vec3
 }
 
 interface ProjectDate {

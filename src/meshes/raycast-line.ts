@@ -1,10 +1,9 @@
 import { vec3 } from 'gl-matrix'
-import Renderable from '../core/renderable'
-import PerspectiveCamera from '../cameras/perspective-camera'
+import { PerspectiveCamera, Renderable } from '../lib/hwoa-rang-gl2/dist'
 
 export default class RaycastLine extends Renderable {
   constructor(gl: WebGL2RenderingContext, startVec3: vec3, endVec3: vec3) {
-    super(gl, {
+    super(gl, 2, {
       USE_SOLID_COLOR: true,
     })
 

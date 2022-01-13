@@ -1,6 +1,5 @@
 import { vec3 } from 'gl-matrix'
-import Renderable from '../core/renderable'
-import { BoundingBox, GeometryProps } from '../types'
+import { BoundingBox, Renderable } from '../lib/hwoa-rang-gl2/dist'
 
 export default class ProjectThumb extends Renderable {
   boundingBox: BoundingBox
