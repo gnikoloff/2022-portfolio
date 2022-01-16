@@ -31,6 +31,7 @@ export default class RoundCube extends Drawable {
       USE_MODEL_MATRIX: true,
       USE_SOLID_COLOR: !!solidColor,
       USE_DEFORM: true,
+      USE_UV_TRANSFORM: true,
     }
     super(gl, VERTEX_SHADER_SRC, FRAGMENT_SHADER_SRC, defines)
 

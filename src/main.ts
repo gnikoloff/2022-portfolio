@@ -1,7 +1,6 @@
 import { Project } from './interfaces'
 import store from './store'
 
-import TextureManager from './lib/hwoa-rang-gl2/src/extra/mega-texture'
 import Line from './meshes/line'
 
 import './style.css'
@@ -33,17 +32,14 @@ import {
   createAndBindUBOToBase,
   createUniformBlockInfo,
   UBOInfo,
-  createProgram,
   intersectRayWithQuad,
+  MegaTexture,
 } from './lib/hwoa-rang-gl2/dist'
 
 import { Tween } from './lib/hwoa-rang-anim/dist'
 
 import RoundCube from './meshes/round-cube'
-import {
-  intersectRayWithPlane,
-  intersectRayWithTriangle,
-} from './lib/hwoa-rang-gl2/src'
+
 import { vec3 } from 'gl-matrix'
 
 let prevView!: View
@@ -68,10 +64,11 @@ const gl: WebGL2RenderingContext = $canvas.getContext('webgl2')!
 let uboCamera: WebGLBuffer
 let uboCameraBlockInfo: UBOInfo
 
-TextureManager.debugMode = true
-TextureManager.textureSize = [gl.MAX_TEXTURE_SIZE, gl.MAX_TEXTURE_SIZE]
-TextureManager.gl = gl
-const texManager = TextureManager.instance
+MegaTexture.debugMode = true
+MegaTexture.gl = gl
+const texManager = MegaTexture.getInstance()
+
+console.log(texManager)
 
 const perspectiveCamera = new PerspectiveCamera(
   deg2Rad(70),
@@ -253,7 +250,7 @@ fetch('http://localhost:3001/api')
     //   })
     // })
 
-    console.log(boxesRootNode)
+    // console.log(boxesRootNode)
 
     // boxesRootNode.updateWorldMatrix()
   })
@@ -459,8 +456,9 @@ function updateFrame(ts: DOMHighResTimeStamp) {
       perspectiveCamera.projectionViewMatrix as ArrayBufferView,
       0,
     )
-    gl.bindBuffer(gl.UNIFORM_BUFFER, null)
   }
+
+  gl.bindBuffer(gl.UNIFORM_BUFFER, null)
 
   // console.log(uboVariableInfo)
 

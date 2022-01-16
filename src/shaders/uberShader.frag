@@ -3,8 +3,7 @@ precision highp float;
 
 -- DEFINES_HOOK --
 
-in vec4 vNormal;
-in vec2 vUv;
+uniform sampler2D u_megaTexture;
 
 #ifdef USE_SOLID_COLOR
   uniform vec4 solidColor;
@@ -15,9 +14,13 @@ in vec2 vUv;
 #endif
 
 #ifdef USE_UV_TRANSFORM
-  in vec4 vInstanceUvOffsets;
-  in vec2 vImageSize;
+  uniform vec4 u_uvOffsetSizes;
+  // webgl2 supports textureSize(), but passing it since we are using a mega texture
+  uniform vec2 u_textureSize;
 #endif
+
+in vec4 vNormal;
+in vec2 vUv;
 
 out vec4 finalColor;
 
@@ -39,33 +42,34 @@ vec2 uvTransformBackgroundCover (vec2 uv, vec2 imageSize, vec2 displaySize) {
 
  
 void main () {
-  vec2 uv = vec2(0.0);
+  vec2 uv = vUv;
+
   #ifdef IS_CUBE
     float faceStep = 1.0 / FACE_COUNT;
     if (vUv.x > FACE_STEP && vUv.x < FACE_STEP2) {
       uv = mapVec2Range(vUv, vec2(FACE_STEP), vec2(FACE_STEP2), vec2(0.0), vec2(1.0));
-      #ifdef USE_BACKGROUND_SIZE_COVER
-        uv = uvTransformBackgroundCover(uv, vImageSize, vec2(2.0, 1.0));
-      #endif
-      uv = mix(
-        vInstanceUvOffsets.xy,
-        vInstanceUvOffsets.zw,
-        uv
-      );
     }
-  #else
-    // uv = mix(vInstanceUvOffsets.xy, vInstanceUvOffsets.zw, vUv);
   #endif
+
+  #ifdef USE_BACKGROUND_SIZE_COVER
+    uv = uvTransformBackgroundCover(uv, u_textureSize, vec2(2.0, 1.0));
+  #endif
+
+  #ifdef USE_UV_TRANSFORM
+    uv = mix(
+      u_uvOffsetSizes.xy,
+      u_uvOffsetSizes.zw,
+      uv
+    );
+  #endif
+
   #ifdef USE_SOLID_COLOR
     finalColor = solidColor;
   #else
     #ifdef USE_TEXTURE
       finalColor = texture(diffuse, uv);
     #else
-      finalColor = vec4(vUv, 0.0, 1.0);
+      finalColor = vec4(uv, 0.0, 1.0);
     #endif
-    // if (vUv.x >= uvStep && vUv.x < uvStep * 2.0) {
-    //   finalColor = vec4(1.0, 0.0, 0.0, 1.0);
-    // }
   #endif
 }

@@ -1,6 +1,6 @@
 import { vec3 } from 'gl-matrix'
 import { LabelProps } from '../interfaces'
-import { Drawable } from '../lib/hwoa-rang-gl2/dist'
+import { Drawable, MegaTexture } from '../lib/hwoa-rang-gl2/dist'
 
 import VERTEX_SHADER_SRC from '../shaders/uberShader.vert'
 import FRAGMENT_SHADER_SRC from '../shaders/uberShader.frag'
@@ -8,8 +8,25 @@ import FRAGMENT_SHADER_SRC from '../shaders/uberShader.frag'
 export default class Label extends Drawable {
   cameraUBOIndex: GLuint
   label: string
+  megaTexture: WebGLTexture | null = null
 
   #worldSpaceVertPositions!: [vec3, vec3, vec3, vec3]
+
+  static drawLabelToCanvas(
+    label: string,
+    width = 400,
+    height = 120,
+  ): HTMLCanvasElement {
+    const canvas = document.createElement('canvas')
+    canvas.width = width
+    canvas.height = height
+    const ctx = canvas.getContext('2d')!
+    ctx.font = '32px Helvetica'
+    ctx.fillStyle = 'white'
+    ctx.textBaseline = 'middle'
+    ctx.fillText(label, 10, height / 2)
+    return canvas
+  }
 
   get cornersInWorldSpace(): [vec3, vec3, vec3, vec3] {
     if (this.#worldSpaceVertPositions && !this.shouldUpdate) {
@@ -34,6 +51,8 @@ export default class Label extends Drawable {
     super(gl, VERTEX_SHADER_SRC, FRAGMENT_SHADER_SRC, {
       USE_SHADING: true,
       USE_MODEL_MATRIX: true,
+      USE_UV_TRANSFORM: true,
+      USE_TEXTURE: true,
     })
     this.label = label
 
@@ -53,6 +72,39 @@ export default class Label extends Drawable {
       max: [width / 2, -height / 2, 0],
     }
 
+    const aspect = width / height
+
+    const texManager = MegaTexture.getInstance()
+    const textureWidth = 400
+    const textureHeight = textureWidth / aspect
+    const labelImage = Label.drawLabelToCanvas(
+      label,
+      textureWidth,
+      textureHeight,
+    )
+    texManager.pack(label, labelImage)
+    const [uvs, texture] = texManager.getUv2(label)
+    if (!uvs) {
+      throw new Error('mega texture allocation failed')
+    }
+    this.megaTexture = texture
+
+    const uvOffsetLocation = gl.getUniformLocation(
+      this.program,
+      'u_uvOffsetSizes',
+    )!
+    const uTextureSize = gl.getUniformLocation(this.program, 'u_textureSize')!
+
+    const megaTextureLocation = gl.getUniformLocation(
+      this.program,
+      'u_megaTexture',
+    )!
+
+    gl.useProgram(this.program)
+    gl.uniform4f(uvOffsetLocation, uvs[0], uvs[1], uvs[4], uvs[5])
+    gl.uniform2f(uTextureSize, labelImage.width, labelImage.height)
+    gl.uniform1i(megaTextureLocation, 0)
+
     const interleavedBuffer = gl.createBuffer()
     const indexBuffer = gl.createBuffer()
 
@@ -60,7 +112,6 @@ export default class Label extends Drawable {
     const aUvLoc = gl.getAttribLocation(this.program, 'aUv')
 
     gl.bindVertexArray(this.vao)
-
     gl.bindBuffer(gl.ARRAY_BUFFER, interleavedBuffer)
     gl.bufferData(gl.ARRAY_BUFFER, interleavedArray, gl.STATIC_DRAW)
 
@@ -97,6 +148,9 @@ export default class Label extends Drawable {
     gl.uniformBlockBinding(this.program, this.cameraUBOIndex, 0)
     gl.useProgram(this.program)
     this.uploadWorldMatrix()
+
+    gl.activeTexture(gl.TEXTURE0)
+    gl.bindTexture(gl.TEXTURE_2D, this.megaTexture)
 
     gl.bindVertexArray(this.vao)
     gl.drawElements(gl.TRIANGLES, this.vertexCount, gl.UNSIGNED_SHORT, 0)

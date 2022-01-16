@@ -39,7 +39,7 @@ export default class View extends SceneNode {
 
     this.projectLabelNode = new Label(gl, {
       geometry: labelGeometry,
-      label: 'hello',
+      label: name,
     })
     this.projectLabelNode.setPosition([0, 1, 0])
     this.projectLabelNode.setParent(meshWrapperNode)

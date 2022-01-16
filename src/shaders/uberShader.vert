@@ -7,18 +7,9 @@ uniform Camera {
 };
 
 uniform mat4 u_modelMatrix;
-uniform float time;
 
 in vec4 aPosition;
 in vec2 aUv;
-
-#ifdef USE_UV_TRANSFORM
-  in vec4 aInstanceUvOffsets;
-  in vec2 aImageSize;
-  
-  out vec4 vInstanceUvOffsets;
-  out vec2 vImageSize;
-#endif
 
 #ifdef USE_SHADING
   in vec4 aNormal;
@@ -69,7 +60,6 @@ void main () {
   vec4 position = aPosition;
 
   #ifdef USE_DEFORM
-    float timeS = time / 1000.0;
     float ang = (position.x + 0.5) * sin(deformAngle);
     position = doTwist(position, ang);
   #endif
@@ -85,9 +75,4 @@ void main () {
   #endif
 
   vUv = aUv;
-  
-  #ifdef USE_UV_TRANSFORM
-    vInstanceUvOffsets = aInstanceUvOffsets;
-    vImageSize = aImageSize;
-  #endif
 }
