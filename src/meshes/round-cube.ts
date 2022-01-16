@@ -1,10 +1,12 @@
 import { vec3 } from 'gl-matrix'
-import { BoundingBox } from '../lib/hwoa-rang-gl2/dist'
-import { GeometryProps } from '../types'
-import Drawable from './drawable'
+import { Drawable, BoundingBox } from '../lib/hwoa-rang-gl2/dist'
+import { RoundCubeProps } from '../interfaces'
+
+import VERTEX_SHADER_SRC from '../shaders/uberShader.vert'
+import FRAGMENT_SHADER_SRC from '../shaders/uberShader.frag'
 
 export default class RoundCube extends Drawable {
-  boundingBox: BoundingBox
+  cameraUBOIndex: GLuint
 
   get AABB(): BoundingBox {
     const min = vec3.clone(this.boundingBox.min)
@@ -14,16 +16,23 @@ export default class RoundCube extends Drawable {
     return { min, max }
   }
 
+  set deformationAngle(deformAngle: number) {
+    const gl = this.gl
+    gl.useProgram(this.program)
+    gl.uniform1f(this.uniformLocations.deformAngle, deformAngle)
+  }
+
   constructor(
     gl: WebGL2RenderingContext,
-    { geometry, solidColor }: GeometryProps,
+    { geometry, solidColor }: RoundCubeProps,
   ) {
     const defines = {
       USE_SHADING: true,
       USE_MODEL_MATRIX: true,
       USE_SOLID_COLOR: !!solidColor,
+      USE_DEFORM: true,
     }
-    super(gl, defines)
+    super(gl, VERTEX_SHADER_SRC, FRAGMENT_SHADER_SRC, defines)
 
     const {
       interleavedArray,
@@ -42,19 +51,24 @@ export default class RoundCube extends Drawable {
       max: vec3.fromValues(width / 2, height / 2, depth / 2),
     }
 
+    this.uniformLocations.deformAngle = gl.getUniformLocation(
+      this.program,
+      'deformAngle',
+    )!
+
     const interleavedBuffer = gl.createBuffer()
     const indexBuffer = gl.createBuffer()
 
-    const aPositionLoc = gl.getAttribLocation(this.drawProgram, 'aPosition')
-    const aNormalLoc = gl.getAttribLocation(this.drawProgram, 'aNormal')
-    const aUvLoc = gl.getAttribLocation(this.drawProgram, 'aUv')
+    const aPositionLoc = gl.getAttribLocation(this.program, 'aPosition')
+    const aNormalLoc = gl.getAttribLocation(this.program, 'aNormal')
+    const aUvLoc = gl.getAttribLocation(this.program, 'aUv')
 
     if (solidColor) {
       const solidColorUniformLocation = gl.getUniformLocation(
-        this.drawProgram,
+        this.program,
         'solidColor',
       )
-      gl.useProgram(this.drawProgram)
+      gl.useProgram(this.program)
       gl.uniform4f(
         solidColorUniformLocation,
         solidColor[0],
@@ -103,22 +117,17 @@ export default class RoundCube extends Drawable {
 
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer)
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indicesArray, gl.STATIC_DRAW)
+
+    this.cameraUBOIndex = gl.getUniformBlockIndex(this.program, 'Camera')
   }
 
-  render(): void {
+  render(timeMS: DOMHighResTimeStamp): void {
     const gl = this.gl
+    gl.uniformBlockBinding(this.program, this.cameraUBOIndex, 0)
+    gl.useProgram(this.program)
+    this.uploadWorldMatrix()
 
-    gl.uniformBlockBinding(this.drawProgram, this.cameraUBOIndex, 0)
-    gl.useProgram(this.drawProgram)
     gl.bindVertexArray(this.vao)
-
-    if (this.shouldUploadModelMatrix) {
-      gl.uniformMatrix4fv(this.modelMatrixLocation, false, this.worldMatrix)
-      this.shouldUploadModelMatrix = false
-    }
-
     gl.drawElements(gl.TRIANGLES, this.vertexCount, gl.UNSIGNED_SHORT, 0)
-
-    this.children.forEach((child) => child.render())
   }
 }

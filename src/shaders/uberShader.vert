@@ -6,11 +6,7 @@ uniform Camera {
   mat4 projectionViewMatrix;
 };
 
-uniform T {
-  int a;
-};
-
-uniform mat4 modelMatrix;
+uniform mat4 u_modelMatrix;
 uniform float time;
 
 in vec4 aPosition;
@@ -37,27 +33,55 @@ in vec2 aUv;
   uniform sampler2D diffuse;
 #endif
 
+#ifdef USE_DEFORM
+  uniform float deformAngle;
+#endif
+
 out vec2 vUv;
 
-float mapNumberToRange(float value, float min1, float max1, float min2, float max2) {
-  return min2 + (value - min1) * (max2 - min2) / (max1 - min1);
+// https://www.ozone3d.net/tutorials/mesh_deformer_p3.php
+vec4 doTwist(vec4 pos, float t) {
+	float st = sin(t);
+	float ct = cos(t);
+	vec4 new_pos;
+	
+	new_pos.y = pos.y*ct - pos.z*st;
+	new_pos.z = pos.y*st + pos.z*ct;
+	
+	new_pos.x = pos.x;
+	new_pos.w = pos.w;
+
+	return new_pos;
 }
 
 void main () {
-  vec4 position = aPosition;
+  mat4 worldMatrix = mat4(1.0);
   
   #ifdef USE_INSTANCING
-    position = aInstanceMatrix * position;
+    worldMatrix = aInstanceMatrix;
   #endif
 
   #ifdef USE_MODEL_MATRIX
-    position = modelMatrix * position;
+    worldMatrix *= u_modelMatrix;
   #endif
 
-  gl_Position = projectionViewMatrix * position;
+
+  vec4 position = aPosition;
+
+  #ifdef USE_DEFORM
+    float timeS = time / 1000.0;
+    float ang = (position.x + 0.5) * sin(deformAngle);
+    position = doTwist(position, ang);
+  #endif
+
+  gl_Position = projectionViewMatrix * worldMatrix * position;
 
   #ifdef USE_SHADING
-    vNormal = aNormal;
+    vec4 normal = aNormal;
+    #ifdef USE_DEFORM
+      normal = doTwist(normal, ang);
+    #endif
+    vNormal = normal;
   #endif
 
   vUv = aUv;

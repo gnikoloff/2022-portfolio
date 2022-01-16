@@ -1,23 +1,28 @@
-import { vec2, vec3 } from 'gl-matrix'
+import { vec2 } from 'gl-matrix'
 import { Dispatch } from 'redux'
 import { CombinedState } from '.'
-import { ActionPayload } from '../types'
+import { ActionPayload } from '../interfaces'
 
 const SET_MOUSE_POS = 'ui/SET_MOUSE_POS'
 const SET_IS_HOVERING = 'ui/SET_IS_HOVERING'
+const SET_SHOW_CUBE_HIGHLIGHT = 'ui/SET_SHOW_CUBE_HIGHLIGHT'
+const SET_IS_CURRENTLY_TRANSITIONING_VIEW =
+  'ui/SET_IS_CURRENTLY_TRANSITIONING_VIEW'
 
 export interface UIState {
-  boxSize: vec3
   mousePos: vec2
+  isHovering: boolean
   isDisplayCursor: boolean
-  showChildrenRow: boolean
+  isCurrentlyTransitionViews: false
+  showCubeHighlight: boolean
 }
 
 const initialState = {
-  boxSize: [2, 1.2, 1.2],
   mousePos: [-1000, -1000],
+  isHovering: false,
   isDisplayCursor: false,
-  showChildrenRow: true,
+  isCurrentlyTransitionViews: false,
+  showCubeHighlight: true,
 }
 
 const views = (state = initialState, action: ActionPayload) => {
@@ -32,6 +37,18 @@ const views = (state = initialState, action: ActionPayload) => {
       return {
         ...state,
         isHovering: action.payload,
+      }
+    }
+    case SET_SHOW_CUBE_HIGHLIGHT: {
+      return {
+        ...state,
+        showCubeHighlight: action.payload,
+      }
+    }
+    case SET_IS_CURRENTLY_TRANSITIONING_VIEW: {
+      return {
+        ...state,
+        isCurrentlyTransitionViews: action.payload,
       }
     }
     default: {
@@ -61,5 +78,17 @@ export const setIsHovering =
     }
     dispatch({ type: SET_IS_HOVERING, payload: isHovering })
   }
+
+export const setShowCubeHighlight = (showCubeHighlight: boolean) => ({
+  type: SET_SHOW_CUBE_HIGHLIGHT,
+  payload: showCubeHighlight,
+})
+
+export const setIsCurrentlyTransitionViews = (
+  isCurrentlyTransitionViews: boolean,
+) => ({
+  type: SET_IS_CURRENTLY_TRANSITIONING_VIEW,
+  payload: isCurrentlyTransitionViews,
+})
 
 export default views

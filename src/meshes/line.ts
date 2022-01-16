@@ -1,11 +1,22 @@
-import { vec3 } from 'gl-matrix'
-import Drawable from './drawable'
+import { vec3, vec4 } from 'gl-matrix'
+import { Drawable } from '../lib/hwoa-rang-gl2/dist'
 
-export default class RaycastLine extends Drawable {
-  constructor(gl: WebGL2RenderingContext, startVec3: vec3, endVec3: vec3) {
+export default class Line extends Drawable {
+  startVec3: vec3
+  endVec3: vec3
+
+  constructor(
+    gl: WebGL2RenderingContext,
+    startVec3: vec3,
+    endVec3: vec3,
+    color: vec4 = [1, 0, 0, 1],
+  ) {
     super(gl, {
       USE_SOLID_COLOR: true,
     })
+
+    this.startVec3 = startVec3
+    this.endVec3 = endVec3
 
     const aPositionLocation = gl.getAttribLocation(
       this.drawProgram,
@@ -17,7 +28,13 @@ export default class RaycastLine extends Drawable {
       'solidColor',
     )
     gl.useProgram(this.drawProgram)
-    gl.uniform4f(solidColorUniformLocation, 1, 0, 0, 1)
+    gl.uniform4f(
+      solidColorUniformLocation,
+      color[0],
+      color[1],
+      color[2],
+      color[3],
+    )
     gl.useProgram(null)
 
     const vertices = new Float32Array([...startVec3, ...endVec3])
