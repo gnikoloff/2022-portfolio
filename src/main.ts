@@ -69,13 +69,13 @@ let uboCameraBlockInfo: UBOInfo
 MegaTexture.gl = gl
 const texManager = MegaTexture.getInstance()
 
-console.log(texManager)
+// console.log(texManager)
 
 const perspectiveCamera = new PerspectiveCamera(
   deg2Rad(70),
   $canvas.width / $canvas.height,
   0.1,
-  20,
+  35,
 )
 perspectiveCamera.position = [0, 2, 8]
 perspectiveCamera.lookAt = [0, 0, 0]
@@ -262,9 +262,6 @@ async function onMouseClick(e: MouseEvent) {
     store.dispatch(setShowCubeHighlight(false))
   }
 
-  console.clear()
-  console.log(hitView?.name, prevView?.name)
-
   let showChildRow = true
   if (prevView) {
     // debugger
@@ -313,7 +310,6 @@ async function onMouseClick(e: MouseEvent) {
           const view = hitView.children[i] as View
           view.visible = true
         }
-        console.log(`hitview was ${hitView.open ? 'open' : 'not open'}`)
         const hitViewOpen = hitView.open
         await new Promise((resolve) => {
           new Tween({
@@ -369,7 +365,6 @@ async function onMouseClick(e: MouseEvent) {
   }
 
   if (showChildRow && hitView) {
-    console.log('animate hitview children shelf')
     for (let i = 0; i < hitView.children.length; i++) {
       const view = hitView.children[i] as View
       view.loadThumbnail()
@@ -400,9 +395,9 @@ async function onMouseClick(e: MouseEvent) {
 
   // console.log('currLevel', currLevel, 'prevLevel', prevLevel)
   if (hitView) {
-    console.log(
-      `new hitview ${hitView.name} is ${hitView.open ? 'open' : 'not open'}`,
-    )
+    // console.log(
+    //   `new hitview ${hitView.name} is ${hitView.open ? 'open' : 'not open'}`,
+    // )
     prevView = hitView
   }
 }

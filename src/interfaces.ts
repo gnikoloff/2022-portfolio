@@ -1,6 +1,10 @@
 import { vec4 } from 'gl-matrix'
 import { Action } from 'redux'
-import { RoundBoxGeometry, PlaneGeometry } from './lib/hwoa-rang-gl2/dist'
+import {
+  RoundBoxGeometry,
+  PlaneGeometry,
+  Plane,
+} from './lib/hwoa-rang-gl2/dist'
 
 export interface UBOVariable {
   offset: number
@@ -31,8 +35,11 @@ export interface ProjectGroup {
   [key: string]: Project[]
 }
 
-export interface LabelProps {
+export interface QuadProps {
   geometry: PlaneGeometry
+}
+
+export interface LabelProps extends QuadProps {
   name?: string
   label: string
 }
