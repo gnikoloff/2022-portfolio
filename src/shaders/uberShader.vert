@@ -52,11 +52,8 @@ void main () {
     worldMatrix = aInstanceMatrix;
   #endif
 
-  #ifdef USE_MODEL_MATRIX
-    worldMatrix *= u_worldMatrix;
-  #endif
-
-
+  worldMatrix *= u_worldMatrix;
+  
   vec4 position = aPosition;
 
   #ifdef USE_DEFORM

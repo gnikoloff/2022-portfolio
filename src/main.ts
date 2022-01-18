@@ -56,6 +56,7 @@ import {
 } from './constants'
 
 import * as dat from 'dat.gui'
+import Effect from './postfx/effect'
 
 const OPTIONS = {
   cameraFreeMode: false,
@@ -90,8 +91,9 @@ $app.appendChild($canvas)
 
 const gl: WebGL2RenderingContext = $canvas.getContext('webgl2')!
 
-let uboCamera: WebGLBuffer
+let uboPerspectiveCamera: WebGLBuffer
 let uboCameraBlockInfo: UBOInfo
+let uboOrthographicCamera: WebGLBuffer
 
 // MegaTexture.debugMode = true
 MegaTexture.gl = gl
@@ -141,7 +143,8 @@ const cubeGeometry = createBox({
   depthSegments: 30,
   uvOffsetEachFace: true,
 })
-console.log(cubeGeometry)
+
+const fx = new Effect(gl).updateWorldMatrix()
 
 fetch('http://192.168.2.123:3001/api')
   .then((projects) => projects.json())
@@ -170,7 +173,16 @@ fetch('http://192.168.2.123:3001/api')
       'Camera',
       ['projectionViewMatrix'],
     )
-    uboCamera = createAndBindUBOToBase(gl, uboCameraBlockInfo.blockSize, 0)!
+    uboPerspectiveCamera = createAndBindUBOToBase(
+      gl,
+      uboCameraBlockInfo.blockSize,
+      0,
+    )!
+    uboOrthographicCamera = createAndBindUBOToBase(
+      gl,
+      uboCameraBlockInfo.blockSize,
+      1,
+    )!
 
     projectsNode.setPosition(getXYZForViewIdxWithinLevel(1, 0))
     projectsNode.loadThumbnail()
@@ -545,22 +557,33 @@ function updateFrame(ts: DOMHighResTimeStamp) {
   gl.enable(gl.BLEND)
   gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
 
-  if (uboCamera) {
+  // UBO for perspective camera projections
+  if (uboPerspectiveCamera) {
     const projViewMatix = OPTIONS.cameraFreeMode
       ? freeOrbitCamera.projectionViewMatrix
       : perspectiveCamera.projectionViewMatrix
-    gl.bindBuffer(gl.UNIFORM_BUFFER, uboCamera)
+    gl.bindBuffer(gl.UNIFORM_BUFFER, uboPerspectiveCamera)
     gl.bufferSubData(
       gl.UNIFORM_BUFFER,
-      uboCameraBlockInfo.uniforms.projectionViewMatrix.offset,
+      // uboCameraBlockInfo.uniforms.projectionViewMatrix.offset,
+      0,
       projViewMatix as ArrayBufferView,
       0,
     )
   }
 
+  // UBO for orthographic camera projections
+  if (uboOrthographicCamera) {
+    const projViewMatix = orthographicCamera.projectionViewMatrix
+    gl.bindBuffer(gl.UNIFORM_BUFFER, uboOrthographicCamera)
+    gl.bufferSubData(gl.UNIFORM_BUFFER, 0, projViewMatix as ArrayBufferView, 0)
+  }
+
   gl.bindBuffer(gl.UNIFORM_BUFFER, null)
 
-  if (uboCamera) {
+  fx.bind().toggleDepth().clear()
+
+  if (uboPerspectiveCamera) {
     boxesRootNode.render(ts)
 
     gl.enable(gl.CULL_FACE)
@@ -576,6 +599,12 @@ function updateFrame(ts: DOMHighResTimeStamp) {
   }
 
   debugLines.forEach((rayLine) => rayLine.render())
+
+  fx.unbind()
+
+  if (uboOrthographicCamera) {
+    fx.render()
+  }
 }
 
 function getHoveredSceneNode(rayStart: vec3, rayDirection: vec3): View {

@@ -77,7 +77,7 @@ export default class Label extends Quad {
 
     const textureAtlasLocation = gl.getUniformLocation(
       this.program,
-      'u_textureAtlas',
+      'u_diffuse',
     )!
 
     gl.useProgram(this.program)

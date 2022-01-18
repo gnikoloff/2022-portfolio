@@ -89,7 +89,7 @@ export default class Cube extends Drawable {
 
     const textureAtlasLocation = gl.getUniformLocation(
       this.program,
-      'u_textureAtlas',
+      'u_diffuse',
     )
 
     gl.useProgram(this.program)

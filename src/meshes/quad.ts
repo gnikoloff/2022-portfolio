@@ -1,5 +1,4 @@
 import { vec3 } from 'gl-matrix'
-import { QuadProps } from '../interfaces'
 import {
   Drawable,
   PlaneGeometry,
@@ -91,9 +90,13 @@ export default class Quad extends Drawable {
     this.cameraUBOIndex = gl.getUniformBlockIndex(this.program, 'Camera')
   }
 
-  preRender() {
+  preRender(cameraUBOBindPoint = 0) {
     const gl = this.gl
-    gl.uniformBlockBinding(this.program, this.cameraUBOIndex, 0)
+    gl.uniformBlockBinding(
+      this.program,
+      this.cameraUBOIndex,
+      cameraUBOBindPoint,
+    )
     gl.useProgram(this.program)
     this.uploadWorldMatrix()
   }

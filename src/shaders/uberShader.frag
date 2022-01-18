@@ -3,7 +3,9 @@ precision highp float;
 
 -- DEFINES_HOOK --
 
-uniform sampler2D u_textureAtlas;
+#ifdef USE_TEXTURE
+  uniform sampler2D u_diffuse;
+#endif
 
 #ifdef USE_SOLID_COLOR
   uniform vec4 solidColor;
@@ -15,7 +17,9 @@ uniform sampler2D u_textureAtlas;
   uniform vec2 u_textureSize;
 #endif
 
-uniform float u_fadeMixFactor;
+#ifdef SUPPORTS_FADING
+  uniform float u_fadeMixFactor;
+#endif
 
 in vec4 vNormal;
 in vec2 vUv;
@@ -84,7 +88,7 @@ void main () {
             uvNoOffset.y < maxY &&
             uvNoOffset.y > minY
           ) {
-            finalColor = texture(u_textureAtlas, uv, -0.5);  
+            finalColor = texture(u_diffuse, uv, -0.5);  
           } else {
             finalColor = vec4(0.0, 1.0, 0.0, 1.0);
           }
@@ -92,11 +96,14 @@ void main () {
           finalColor = vec4(uv, 0.0, 1.0);
         }
       #else
-        finalColor = texture(u_textureAtlas, uv, -0.5);
+        finalColor = texture(u_diffuse, uv, -0.5);
       #endif
     #else
       finalColor = vec4(uv, 0.0, 1.0);
     #endif
   #endif
-  finalColor.rgb = mix(vec3(0.1), finalColor.rgb, u_fadeMixFactor);
+
+  #ifdef SUPPORTS_FADING
+    finalColor.rgb = mix(vec3(0.1), finalColor.rgb, u_fadeMixFactor);
+  #endif
 }
