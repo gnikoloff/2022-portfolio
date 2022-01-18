@@ -33,11 +33,13 @@ export interface ProjectGroup {
 
 export interface LabelProps {
   geometry: PlaneGeometry
+  name?: string
   label: string
 }
 
 export interface RoundCubeProps {
   geometry: RoundBoxGeometry
+  name?: string
   solidColor?: vec4
 }
 
@@ -46,6 +48,7 @@ export interface ViewProps {
   labelGeometry: PlaneGeometry
   name: string
   project?: Project
+  hasLabel?: boolean
 }
 
 export interface ActionPayload extends Action {

@@ -6,7 +6,7 @@ uniform Camera {
   mat4 projectionViewMatrix;
 };
 
-uniform mat4 u_modelMatrix;
+uniform mat4 u_worldMatrix;
 
 in vec4 aPosition;
 in vec2 aUv;
@@ -53,14 +53,14 @@ void main () {
   #endif
 
   #ifdef USE_MODEL_MATRIX
-    worldMatrix *= u_modelMatrix;
+    worldMatrix *= u_worldMatrix;
   #endif
 
 
   vec4 position = aPosition;
 
   #ifdef USE_DEFORM
-    float ang = (position.x + 0.5) * sin(deformAngle);
+    float ang = (position.x + 0.5) * sin(deformAngle) * deformAngle;
     position = doTwist(position, ang);
   #endif
 

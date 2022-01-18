@@ -3,14 +3,10 @@ precision highp float;
 
 -- DEFINES_HOOK --
 
-uniform sampler2D u_megaTexture;
+uniform sampler2D u_textureAtlas;
 
 #ifdef USE_SOLID_COLOR
   uniform vec4 solidColor;
-#endif
-
-#ifdef USE_TEXTURE
-  uniform sampler2D diffuse;
 #endif
 
 #ifdef USE_UV_TRANSFORM
@@ -42,17 +38,20 @@ vec2 uvTransformBackgroundCover (vec2 uv, vec2 imageSize, vec2 displaySize) {
 
  
 void main () {
+  vec2 uvNoOffset = vUv;
   vec2 uv = vUv;
 
   #ifdef IS_CUBE
     float faceStep = 1.0 / FACE_COUNT;
     if (vUv.x > FACE_STEP && vUv.x < FACE_STEP2) {
       uv = mapVec2Range(vUv, vec2(FACE_STEP), vec2(FACE_STEP2), vec2(0.0), vec2(1.0));
+      uvNoOffset = uv;
     }
   #endif
 
   #ifdef USE_BACKGROUND_SIZE_COVER
-    uv = uvTransformBackgroundCover(uv, u_textureSize, vec2(2.0, 1.0));
+    uv = uvTransformBackgroundCover(uv, u_textureSize, vec2(MESH_WIDTH, MESH_HEIGHT));
+    // uvNoOffset = uv;
   #endif
 
   #ifdef USE_UV_TRANSFORM
@@ -67,9 +66,35 @@ void main () {
     finalColor = solidColor;
   #else
     #ifdef USE_TEXTURE
-      finalColor = texture(diffuse, uv);
+      // https://bgolus.medium.com/sharper-mipmapping-using-shader-based-supersampling-ed7aadb47bec
+      float lodBias = -0.5;
+      #ifdef IS_CUBE
+        if (vUv.x > FACE_STEP && vUv.x < FACE_STEP2) { 
+          float aspect = MESH_WIDTH / MESH_HEIGHT;
+          float border_width = 0.05;
+          float maxX = 1.0 - border_width;
+          float minX = border_width;
+          float maxY = 1.0 - border_width;
+          float minY = border_width;
+          if (
+            uvNoOffset.x < maxX &&
+            uvNoOffset.x > minX &&
+            uvNoOffset.y < maxY &&
+            uvNoOffset.y > minY
+          ) {
+            finalColor = texture(u_textureAtlas, uv, -0.5);  
+          } else {
+            finalColor = vec4(0.0, 1.0, 0.0, 1.0);
+          }
+        } else {
+          finalColor = vec4(uv, 0.0, 1.0);
+        }
+      #else
+        finalColor = texture(u_textureAtlas, uv, -0.5);
+      #endif
     #else
       finalColor = vec4(uv, 0.0, 1.0);
     #endif
   #endif
+
 }

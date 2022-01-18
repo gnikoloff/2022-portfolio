@@ -8,9 +8,11 @@ import FRAGMENT_SHADER_SRC from '../shaders/uberShader.frag'
 export default class Label extends Drawable {
   cameraUBOIndex: GLuint
   label: string
-  megaTexture: WebGLTexture | null = null
+  textureAtlas: WebGLTexture | null = null
 
   #worldSpaceVertPositions!: [vec3, vec3, vec3, vec3]
+
+  static TEXTURE_SIZE = 600
 
   static drawLabelToCanvas(
     label: string,
@@ -75,19 +77,16 @@ export default class Label extends Drawable {
     const aspect = width / height
 
     const texManager = MegaTexture.getInstance()
-    const textureWidth = 400
-    const textureHeight = textureWidth / aspect
-    const labelImage = Label.drawLabelToCanvas(
-      label,
-      textureWidth,
-      textureHeight,
-    )
-    texManager.pack(label, labelImage)
-    const [uvs, texture] = texManager.getUv2(label)
+    const texWidth = Label.TEXTURE_SIZE
+    const texHeight = texWidth / aspect
+    const atlasID = `label-${label}`
+    const labelImage = Label.drawLabelToCanvas(label, texWidth, texHeight)
+    texManager.pack(atlasID, labelImage)
+    const [uvs, texture] = texManager.getUv2(atlasID)
     if (!uvs) {
       throw new Error('mega texture allocation failed')
     }
-    this.megaTexture = texture
+    this.textureAtlas = texture
 
     const uvOffsetLocation = gl.getUniformLocation(
       this.program,
@@ -95,15 +94,15 @@ export default class Label extends Drawable {
     )!
     const uTextureSize = gl.getUniformLocation(this.program, 'u_textureSize')!
 
-    const megaTextureLocation = gl.getUniformLocation(
+    const textureAtlasLocation = gl.getUniformLocation(
       this.program,
-      'u_megaTexture',
+      'u_textureAtlas',
     )!
 
     gl.useProgram(this.program)
     gl.uniform4f(uvOffsetLocation, uvs[0], uvs[1], uvs[4], uvs[5])
     gl.uniform2f(uTextureSize, labelImage.width, labelImage.height)
-    gl.uniform1i(megaTextureLocation, 0)
+    gl.uniform1i(textureAtlasLocation, 0)
 
     const interleavedBuffer = gl.createBuffer()
     const indexBuffer = gl.createBuffer()
@@ -150,7 +149,7 @@ export default class Label extends Drawable {
     this.uploadWorldMatrix()
 
     gl.activeTexture(gl.TEXTURE0)
-    gl.bindTexture(gl.TEXTURE_2D, this.megaTexture)
+    gl.bindTexture(gl.TEXTURE_2D, this.textureAtlas)
 
     gl.bindVertexArray(this.vao)
     gl.drawElements(gl.TRIANGLES, this.vertexCount, gl.UNSIGNED_SHORT, 0)

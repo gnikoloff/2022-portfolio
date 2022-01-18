@@ -1,12 +1,17 @@
 import { vec3 } from 'gl-matrix'
-import { Drawable, BoundingBox } from '../lib/hwoa-rang-gl2/dist'
+import { Drawable, BoundingBox, MegaTexture } from '../lib/hwoa-rang-gl2/dist'
+
 import { RoundCubeProps } from '../interfaces'
+import { CUBE_HEIGHT, CUBE_WIDTH } from '../constants'
 
 import VERTEX_SHADER_SRC from '../shaders/uberShader.vert'
 import FRAGMENT_SHADER_SRC from '../shaders/uberShader.frag'
 
 export default class RoundCube extends Drawable {
   cameraUBOIndex: GLuint
+  textureAtlas!: WebGLTexture
+
+  posterLoaded = false
 
   get AABB(): BoundingBox {
     const min = vec3.clone(this.boundingBox.min)
@@ -24,16 +29,23 @@ export default class RoundCube extends Drawable {
 
   constructor(
     gl: WebGL2RenderingContext,
-    { geometry, solidColor }: RoundCubeProps,
+    { geometry, solidColor, name }: RoundCubeProps,
   ) {
     const defines = {
       USE_SHADING: true,
       USE_MODEL_MATRIX: true,
       USE_SOLID_COLOR: !!solidColor,
       USE_DEFORM: true,
+      USE_TEXTURE: true,
       USE_UV_TRANSFORM: true,
+      USE_BACKGROUND_SIZE_COVER: true,
+      MESH_WIDTH: CUBE_WIDTH,
+      MESH_HEIGHT: CUBE_HEIGHT,
+      IS_CUBE: true,
     }
     super(gl, VERTEX_SHADER_SRC, FRAGMENT_SHADER_SRC, defines)
+
+    this.name = name
 
     const {
       interleavedArray,
@@ -56,6 +68,22 @@ export default class RoundCube extends Drawable {
       this.program,
       'deformAngle',
     )!
+    this.uniformLocations.uvOffsetLocation = gl.getUniformLocation(
+      this.program,
+      'u_uvOffsetSizes',
+    )!
+    this.uniformLocations.uTextureSize = gl.getUniformLocation(
+      this.program,
+      'u_textureSize',
+    )
+
+    const textureAtlasLocation = gl.getUniformLocation(
+      this.program,
+      'u_textureAtlas',
+    )
+
+    gl.useProgram(this.program)
+    gl.uniform1i(textureAtlasLocation, 0)
 
     const interleavedBuffer = gl.createBuffer()
     const indexBuffer = gl.createBuffer()
@@ -122,11 +150,44 @@ export default class RoundCube extends Drawable {
     this.cameraUBOIndex = gl.getUniformBlockIndex(this.program, 'Camera')
   }
 
+  displayPoster(poster: HTMLImageElement | HTMLCanvasElement) {
+    if (!this.name) {
+      throw new Error('you need to supply a name in order to display a poster')
+    }
+    const texManager = MegaTexture.getInstance()
+    texManager.pack(this.name, poster)
+    const [uvs, texture] = texManager.getUv2(this.name)
+    if (!uvs) {
+      throw new Error('mega texture allocation failed')
+    }
+    this.textureAtlas = texture
+
+    const gl = this.gl
+    gl.useProgram(this.program)
+    gl.uniform4f(
+      this.uniformLocations.uvOffsetLocation,
+      uvs[0],
+      uvs[1],
+      uvs[4],
+      uvs[5],
+    )
+    gl.uniform2f(
+      this.uniformLocations.uTextureSize,
+      poster.width,
+      poster.height,
+    )
+
+    this.posterLoaded = true
+  }
+
   render(timeMS: DOMHighResTimeStamp): void {
     const gl = this.gl
     gl.uniformBlockBinding(this.program, this.cameraUBOIndex, 0)
     gl.useProgram(this.program)
     this.uploadWorldMatrix()
+
+    gl.activeTexture(gl.TEXTURE0)
+    gl.bindTexture(gl.TEXTURE_2D, this.textureAtlas)
 
     gl.bindVertexArray(this.vao)
     gl.drawElements(gl.TRIANGLES, this.vertexCount, gl.UNSIGNED_SHORT, 0)

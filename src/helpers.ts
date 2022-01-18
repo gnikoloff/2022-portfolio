@@ -38,7 +38,7 @@ export const transformProjectEntries = (entries: any): Project[] => {
 export const sortProjectEntriesByYear = (
   projectEntries: Project[],
 ): ProjectGroup => {
-  return projectEntries.reduce((acc: ProjectGroup, item) => {
+  return [...projectEntries].reduce((acc: ProjectGroup, item) => {
     const key = item.year
     if (!acc[key]) {
       acc[key] = [item]

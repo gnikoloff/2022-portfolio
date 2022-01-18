@@ -41,6 +41,7 @@ import { Tween } from './lib/hwoa-rang-anim/dist'
 import RoundCube from './meshes/round-cube'
 
 import { vec3 } from 'gl-matrix'
+import { CUBE_DEPTH, CUBE_HEIGHT, CUBE_WIDTH } from './constants'
 
 let prevView!: View
 
@@ -64,7 +65,7 @@ const gl: WebGL2RenderingContext = $canvas.getContext('webgl2')!
 let uboCamera: WebGLBuffer
 let uboCameraBlockInfo: UBOInfo
 
-MegaTexture.debugMode = true
+// MegaTexture.debugMode = true
 MegaTexture.gl = gl
 const texManager = MegaTexture.getInstance()
 
@@ -98,78 +99,6 @@ const { verticesNormalUv, indices } = createPlane({
   width: innerWidth,
   height: innerHeight,
 })
-// const planeProgram = createProgram(
-//   gl,
-//   `#version 300 es
-//   uniform mat4 projectionViewMatrix;
-
-//   in vec4 aPosition;
-//   in vec2 aUv;
-
-//   out vec2 vUv;
-
-//   void main () {
-//     gl_Position = projectionViewMatrix * aPosition;
-
-//     vUv = aUv;
-//   }
-// `,
-//   `#version 300 es
-//   precision highp float;
-
-//   in vec2 vUv;
-
-//   out vec4 finalColor;
-
-//   void main () {
-//     finalColor = vec4(vUv, 0.0, 1.0);
-//   }
-// `,
-// )
-
-// const aPositionLoc = gl.getAttribLocation(planeProgram, 'aPosition')
-// const aUvLoc = gl.getAttribLocation(planeProgram, 'aUv')
-// const projectionViewMatrixLoc = gl.getUniformLocation(
-//   planeProgram,
-//   'projectionViewMatrix',
-// )
-
-// const planeInterleavedBuffer = gl.createBuffer()
-// const indexBuffer = gl.createBuffer()
-
-// const vao = gl.createVertexArray()
-// gl.bindVertexArray(vao)
-
-// gl.bindBuffer(gl.ARRAY_BUFFER, planeInterleavedBuffer)
-// gl.bufferData(gl.ARRAY_BUFFER, verticesNormalUv, gl.STATIC_DRAW)
-
-// gl.enableVertexAttribArray(aPositionLoc)
-// gl.vertexAttribPointer(
-//   aPositionLoc,
-//   3,
-//   gl.FLOAT,
-//   false,
-//   5 * Float32Array.BYTES_PER_ELEMENT,
-//   0,
-// )
-
-// gl.enableVertexAttribArray(aUvLoc)
-// gl.vertexAttribPointer(
-//   aUvLoc,
-//   2,
-//   gl.FLOAT,
-//   false,
-//   5 * Float32Array.BYTES_PER_ELEMENT,
-//   3 * Float32Array.BYTES_PER_ELEMENT,
-// )
-
-// gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer)
-// gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW)
-
-// gl.bindVertexArray(null)
-
-// const debugRaycastLine = new Line(gl, [0, 0, 4], [1, 0, -4])
-// debugLines.push(debugRaycastLine)
 
 fetch('http://localhost:3001/api')
   .then((projects) => projects.json())
@@ -193,21 +122,41 @@ fetch('http://localhost:3001/api')
     uboCamera = createAndBindUBOToBase(gl, uboCameraBlockInfo.blockSize, 0)!
 
     projectsNode.setPosition(getXYZForViewIdxWithinLevel(1, 0))
+    projectsNode.loadThumbnail()
     projectsNode.reveal()
     projectsNode.visible = true
+    projectsNode.setParent(boxesRootNode)
+
     const aboutNode = new View(gl, { ...viewGeoPartialProps, name: 'about' })
-
-    // intersectRayWithPlane(
-    //   aboutNode.projectLabelNode.position,
-    //   debugRaycastLine.startVec3,
-    //   debugRaycastLine.endVec3,
-    // )
-
+    aboutNode.loadThumbnail()
     aboutNode.reveal()
     aboutNode.visible = true
-
-    projectsNode.setParent(boxesRootNode)
     aboutNode.setParent(boxesRootNode)
+
+    const aaaaaaNode = new View(gl, { ...viewGeoPartialProps, name: 'aa' })
+    aaaaaaNode.loadThumbnail()
+    aaaaaaNode.reveal()
+    aaaaaaNode.visible = false
+    aaaaaaNode.setParent(aboutNode)
+
+    const contactNode = new View(gl, {
+      ...viewGeoPartialProps,
+      name: 'contact',
+    })
+    contactNode.loadThumbnail()
+    contactNode.reveal()
+    contactNode.visible = true
+    contactNode.setParent(boxesRootNode)
+
+    const blogNode = new View(gl, {
+      ...viewGeoPartialProps,
+      name: 'blog',
+    })
+    blogNode.loadThumbnail()
+    blogNode.reveal()
+    blogNode.visible = true
+    blogNode.setParent(boxesRootNode)
+
     for (const [key, projects] of Object.entries(projectsByYear)) {
       const yearNode = new View(gl, { ...viewGeoPartialProps, name: key })
       yearNode.setParent(projectsNode)
@@ -217,6 +166,7 @@ fetch('http://localhost:3001/api')
           ...viewGeoPartialProps,
           name: project.uid,
           project,
+          hasLabel: true,
         })
         projectNode.setParent(yearNode)
       }
@@ -229,17 +179,15 @@ fetch('http://localhost:3001/api')
     ) => {
       const position = getXYZForViewIdxWithinLevel(idx, levelIdx)
       node.setPosition(position).updateWorldMatrix()
-      const iterableChildNodes = node.children.filter(
-        ({ name }) => name !== 'mesh-wrapper',
-      )
       levelIdx++
-      for (let i = 0; i < iterableChildNodes.length; i++) {
-        const child = iterableChildNodes[i]
+      const children = node.children
+      for (let i = 0; i < children.length; i++) {
+        const child = node.children[i] as View
         positionNodeWithinLevel(child, i, levelIdx)
       }
     }
 
-    positionNodeWithinLevel(boxesRootNode, 0, 0)
+    positionNodeWithinLevel(boxesRootNode, 0, -1)
 
     // projectsNode.iterateChildren((childNode, i) => {
     //   const position = getXYZForViewIdxWithinLevel(i, 1)
@@ -256,10 +204,10 @@ fetch('http://localhost:3001/api')
   })
 
 const cubeGeometry = createRoundedBox({
-  width: 2.4,
-  height: 1.2,
-  depth: 1.2,
-  radius: 0.2,
+  width: CUBE_WIDTH,
+  height: CUBE_HEIGHT,
+  depth: CUBE_DEPTH,
+  radius: 0.75,
   div: 10,
 })
 const labelGeometry = createPlane({
@@ -291,6 +239,7 @@ async function onMouseClick(e: MouseEvent) {
     perspectiveCamera,
   )
 
+  // debugger
   if (e.metaKey) {
     debugLines.push(new Line(gl, rayStart, rayEnd))
   }
@@ -300,9 +249,9 @@ async function onMouseClick(e: MouseEvent) {
   } = store.getState()
 
   // console.log(isCurrentlyTransitionViews)
-  if (isCurrentlyTransitionViews) {
-    return
-  }
+  // if (isCurrentlyTransitionViews) {
+  //   return
+  // }
 
   const hitView = getHoveredSceneNode(rayStart, rayDirection)
 
@@ -313,101 +262,147 @@ async function onMouseClick(e: MouseEvent) {
     store.dispatch(setShowCubeHighlight(false))
   }
 
-  let showChildRow = hitView?.open
+  console.clear()
+  console.log(hitView?.name, prevView?.name)
 
+  let showChildRow = true
   if (prevView) {
-    store.dispatch(setIsCurrentlyTransitionViews(true))
-    if (prevView.uid === hitView?.uid) {
-      for (let i = 0; i < hitView.children.length; i++) {
-        const view = hitView.children[i] as View
-        if (view.findParentByName('mesh-wrapper')) {
-          continue
-        }
-        if (showChildRow) {
-          view.reveal()
-        } else {
-          view.hide()
-        }
-        view.updateModelMatrix()
-      }
+    // debugger
+    if (currLevel < prevLevel) {
+      const viewsToClose: SceneNode[] = []
 
-      store.dispatch(setIsCurrentlyTransitionViews(false))
-    } else {
       await new Promise((resolve) => {
-        new Tween({
-          durationMS: 1000,
-          easeName: 'sine_In',
-          onUpdate: (v) => {
-            const endRot = -Math.PI * 2
-            const endDeformAngle = Math.PI
-            boxesRootNode.traverse((child) => {
-              const view = child as View
-              if (view.findParentByName('mesh-wrapper')) {
-                return
-              }
-              if (view.levelIndex > hitView?.levelIndex) {
+        prevView.traverse((child) => {
+          const view = child as View
+          if (view.findParentByName(View.MESH_WRAPPER_NAME)) {
+            return
+          }
+          if (view.levelIndex === prevView.levelIndex) {
+            viewsToClose.push(...view.siblings)
+          }
+          if (view.levelIndex > prevView.levelIndex) {
+            viewsToClose.push(view)
+          }
+          new Tween({
+            durationMS: 1000,
+            easeName: 'linear',
+            onUpdate: (v) => {
+              for (let i = 0; i < viewsToClose.length; i++) {
+                const view = viewsToClose[i] as View
                 const sc = 1 - v
-                const rot = endRot * v
-                const deformAngle = endDeformAngle * v
-                view.hide(sc, sc, sc, rot, 0, 0, deformAngle)
+                view.hide(sc, sc, sc)
                 view.updateWorldMatrix()
-                view.open = false
               }
-            })
-          },
-          onComplete: () => {
-            boxesRootNode.traverse((child) => {
-              const view = child as View
-              if (view.name === 'mesh-wrapper') {
-                return
-              }
-              if (view.levelIndex > hitView?.levelIndex) {
-                view.visible = false
-              }
-            })
-            store.dispatch(setIsCurrentlyTransitionViews(false))
-
-            resolve(null)
-          },
-        }).start()
+            },
+            onComplete: () => resolve(null),
+          }).start()
+        })
       })
-    }
-  }
 
-  if (showChildRow && hitView && currLevel >= prevLevel) {
-    for (let i = 0; i < hitView.children.length; i++) {
-      const view = hitView.children[i] as View
-      if (view.name === 'mesh-wrapper') {
-        continue
+      for (let i = 0; i < viewsToClose.length; i++) {
+        const view = viewsToClose[i] as View
+        view.visible = false
       }
-      view.visible = true
-    }
-    new Tween({
-      durationMS: 1000,
-      easeName: 'cubic_Out',
-      onUpdate: (v) => {
-        const startRot = Math.PI * 2
-        const startDeformAngle = Math.PI
+
+      hitView.open = false
+
+      showChildRow = !prevView.findParentByName(hitView.name as string)
+    } else if (currLevel === prevLevel) {
+      if (hitView.name === prevView.name) {
         for (let i = 0; i < hitView.children.length; i++) {
           const view = hitView.children[i] as View
-          if (view.name === 'mesh-wrapper') {
-            continue
-          }
-          const rot = startRot * (1 - v)
-          const deformAngle = startDeformAngle * (1 - v)
-          view.reveal(v, v, v, rot, 0, 0, deformAngle)
-          view.updateWorldMatrix()
+          view.visible = true
         }
-      },
-      onComplete: () => {
-        store.dispatch(setShowCubeHighlight(true))
-        store.dispatch(setIsCurrentlyTransitionViews(false))
-      },
-    }).start()
+        console.log(`hitview was ${hitView.open ? 'open' : 'not open'}`)
+        const hitViewOpen = hitView.open
+        await new Promise((resolve) => {
+          new Tween({
+            durationMS: 1000,
+            easeName: 'quart_InOut',
+            onUpdate: (v) => {
+              for (let i = 0; i < hitView.children.length; i++) {
+                const view = hitView.children[i] as View
+                if (hitViewOpen) {
+                  const sc = 1 - v
+                  view.hide(sc, sc, sc)
+                } else {
+                  const sc = v
+                  view.reveal(sc, sc, sc)
+                }
+                view.updateWorldMatrix()
+              }
+            },
+            onComplete: () => resolve(null),
+          }).start()
+        })
+        for (let i = 0; i < hitView.children.length; i++) {
+          const view = hitView.children[i] as View
+          view.visible = !hitViewOpen
+        }
+        hitView.open = !hitViewOpen
+        showChildRow = false
+      } else {
+        await new Promise((resolve) =>
+          new Tween({
+            durationMS: 1000,
+            easeName: 'quart_In',
+            onUpdate: (v) => {
+              for (let i = 0; i < prevView.children.length; i++) {
+                const view = prevView.children[i] as View
+                const sc = 1 - v
+                view.hide(sc, sc, sc)
+                view.updateWorldMatrix()
+              }
+            },
+            onComplete: () => resolve(null),
+          }).start(),
+        )
+
+        for (let i = 0; i < prevView.children.length; i++) {
+          const view = prevView.children[i] as View
+          view.visible = false
+        }
+
+        hitView.open = !hitView.open
+      }
+    }
   }
 
+  if (showChildRow && hitView) {
+    console.log('animate hitview children shelf')
+    for (let i = 0; i < hitView.children.length; i++) {
+      const view = hitView.children[i] as View
+      view.loadThumbnail()
+      view.visible = true
+    }
+    await new Promise((resolve) =>
+      new Tween({
+        durationMS: 1000,
+        easeName: 'cubic_Out',
+        onUpdate: (v) => {
+          const startRot = Math.PI
+          const startDeformAngle = Math.PI
+          for (let i = 0; i < hitView.children.length; i++) {
+            const view = hitView.children[i] as View
+            const rot = startRot * (1 - v)
+            const deformAngle = startDeformAngle * (1 - v)
+            view.reveal(v, v, v, rot, 0, 0, deformAngle)
+            view.updateWorldMatrix()
+          }
+        },
+        onComplete: () => resolve(null),
+      }).start(),
+    )
+    store.dispatch(setShowCubeHighlight(true))
+    store.dispatch(setIsCurrentlyTransitionViews(false))
+    hitView.open = true
+  }
+
+  // console.log('currLevel', currLevel, 'prevLevel', prevLevel)
   if (hitView) {
-    hitView.open = !showChildRow
+    console.log(
+      `new hitview ${hitView.name} is ${hitView.open ? 'open' : 'not open'}`,
+    )
     prevView = hitView
   }
 }
@@ -460,16 +455,6 @@ function updateFrame(ts: DOMHighResTimeStamp) {
 
   gl.bindBuffer(gl.UNIFORM_BUFFER, null)
 
-  // console.log(uboVariableInfo)
-
-  // gl.depthMask(true)
-  // gl.disable(gl.BLEND)
-  // gl.cullFace(gl.FRONT)
-
-  // if (boxDebugLabels) {
-  //   boxDebugLabels.render(perspectiveCamera)
-  // }
-
   if (uboCamera) {
     boxesRootNode.render(ts)
 
@@ -481,24 +466,7 @@ function updateFrame(ts: DOMHighResTimeStamp) {
     gl.disable(gl.CULL_FACE)
   }
 
-  // gl.enable(gl.BLEND)
-  // gl.blendFunc(gl.SRC_COLOR, gl.DST_ALPHA)
-  // gl.depthMask(false)
-  // gl.cullFace(gl.FRONT_AND_BACK)
-
   debugLines.forEach((rayLine) => rayLine.render())
-
-  // const VPMPos = gl.getUniformLocation(triangleProgram, 'viewProjectionMatrix')
-
-  // gl.useProgram(planeProgram)
-  // gl.bindVertexArray(vao)
-  // gl.uniformMatrix4fv(
-  //   projectionViewMatrixLoc,
-  //   false,
-  //   orthographicCamera.projectionViewMatrix,
-  // )
-  // gl.drawElements(gl.TRIANGLES, indices.length, gl.UNSIGNED_SHORT, 0)
-  // gl.bindVertexArray(null)
 }
 
 function getHoveredSceneNode(rayStart: vec3, rayDirection: vec3): View {
@@ -509,38 +477,12 @@ function getHoveredSceneNode(rayStart: vec3, rayDirection: vec3): View {
     if (!(child instanceof View)) {
       return
     }
-    if (!child.visible) {
-      return
-    }
 
-    const aabbIntersectionTime = intersectRayWithAABB(
-      rayStart,
-      rayDirection,
-      child.AABB,
-    )
+    const rayTime = child.testRayIntersection(rayStart, rayDirection)
 
-    // console.log(child.labelQuadVertPositions, quadIntersection)
-
-    if (
-      aabbIntersectionTime !== null &&
-      aabbIntersectionTime < prevRayTimeSample
-    ) {
-      prevRayTimeSample = aabbIntersectionTime
+    if (rayTime !== null && rayTime < prevRayTimeSample) {
+      prevRayTimeSample = rayTime
       hitView = child
-    }
-
-    const quadIntersection = intersectRayWithQuad(
-      rayStart,
-      rayDirection,
-      child.labelQuadVertPositions,
-    )
-
-    if (quadIntersection) {
-      const [rayTime, intersectionPoint] = quadIntersection
-      if (rayTime < prevRayTimeSample) {
-        prevRayTimeSample = rayTime
-        hitView = child
-      }
     }
   })
 
