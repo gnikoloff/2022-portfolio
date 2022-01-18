@@ -1,13 +1,13 @@
 import { vec3 } from 'gl-matrix'
 import { Drawable, BoundingBox, MegaTexture } from '../lib/hwoa-rang-gl2/dist'
 
-import { RoundCubeProps } from '../interfaces'
+import { CubeProps } from '../interfaces'
 import { CUBE_HEIGHT, CUBE_WIDTH } from '../constants'
 
 import VERTEX_SHADER_SRC from '../shaders/uberShader.vert'
 import FRAGMENT_SHADER_SRC from '../shaders/uberShader.frag'
 
-export default class RoundCube extends Drawable {
+export default class Cube extends Drawable {
   cameraUBOIndex: GLuint
   textureAtlas!: WebGLTexture
 
@@ -27,9 +27,15 @@ export default class RoundCube extends Drawable {
     gl.uniform1f(this.uniformLocations.deformAngle, deformAngle)
   }
 
+  set fadeFactor(v: number) {
+    const gl = this.gl
+    gl.useProgram(this.program)
+    gl.uniform1f(this.uniformLocations.uFadeMixFactor, v)
+  }
+
   constructor(
     gl: WebGL2RenderingContext,
-    { geometry, solidColor, name }: RoundCubeProps,
+    { geometry, solidColor, name }: CubeProps,
   ) {
     const defines = {
       USE_SHADING: true,
@@ -76,6 +82,10 @@ export default class RoundCube extends Drawable {
       this.program,
       'u_textureSize',
     )
+    this.uniformLocations.uFadeMixFactor = gl.getUniformLocation(
+      this.program,
+      'u_fadeMixFactor',
+    )!
 
     const textureAtlasLocation = gl.getUniformLocation(
       this.program,
@@ -84,6 +94,7 @@ export default class RoundCube extends Drawable {
 
     gl.useProgram(this.program)
     gl.uniform1i(textureAtlasLocation, 0)
+    gl.uniform1f(this.uniformLocations.uFadeMixFactor, 1)
 
     const interleavedBuffer = gl.createBuffer()
     const indexBuffer = gl.createBuffer()

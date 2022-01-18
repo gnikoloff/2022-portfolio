@@ -27,6 +27,12 @@ export default class Label extends Quad {
     return canvas
   }
 
+  set fadeFactor(v: number) {
+    const gl = this.gl
+    gl.useProgram(this.program)
+    gl.uniform1f(this.uniformLocations.uFadeMixFactor, v)
+  }
+
   constructor(gl: WebGL2RenderingContext, { geometry, label }: LabelProps) {
     super(
       gl,
@@ -58,6 +64,11 @@ export default class Label extends Quad {
     }
     this.textureAtlas = texture
 
+    this.uniformLocations.uFadeMixFactor = gl.getUniformLocation(
+      this.program,
+      'u_fadeMixFactor',
+    )!
+
     const uvOffsetLocation = gl.getUniformLocation(
       this.program,
       'u_uvOffsetSizes',
@@ -73,6 +84,7 @@ export default class Label extends Quad {
     gl.uniform4f(uvOffsetLocation, uvs[0], uvs[1], uvs[4], uvs[5])
     gl.uniform2f(uTextureSize, labelImage.width, labelImage.height)
     gl.uniform1i(textureAtlasLocation, 0)
+    gl.uniform1f(this.uniformLocations.uFadeMixFactor, 1)
   }
 
   render(): void {

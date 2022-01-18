@@ -15,6 +15,8 @@ uniform sampler2D u_textureAtlas;
   uniform vec2 u_textureSize;
 #endif
 
+uniform float u_fadeMixFactor;
+
 in vec4 vNormal;
 in vec2 vUv;
 
@@ -71,7 +73,7 @@ void main () {
       #ifdef IS_CUBE
         if (vUv.x > FACE_STEP && vUv.x < FACE_STEP2) { 
           float aspect = MESH_WIDTH / MESH_HEIGHT;
-          float border_width = 0.05;
+          float border_width = 0.015;
           float maxX = 1.0 - border_width;
           float minX = border_width;
           float maxY = 1.0 - border_width;
@@ -96,5 +98,5 @@ void main () {
       finalColor = vec4(uv, 0.0, 1.0);
     #endif
   #endif
-
+  finalColor.rgb = mix(vec3(0.1), finalColor.rgb, u_fadeMixFactor);
 }

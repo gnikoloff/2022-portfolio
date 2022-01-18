@@ -3,17 +3,18 @@ import {
   intersectRayWithAABB,
   intersectRayWithQuad,
   SceneNode,
-} from './lib/hwoa-rang-gl2/dist'
-import RoundCube from './meshes/round-cube'
-import { Project, ViewProps } from './interfaces'
-import Label from './meshes/label'
-import { promisifiedLoadImage } from './helpers'
+} from '../lib/hwoa-rang-gl2/dist'
+import Cube from '../meshes/cube'
+import { Project, ViewProps } from '../interfaces'
+import Label from '../meshes/label'
+import { promisifiedLoadImage } from '../helpers'
+import { CUBE_DEPTH, CUBE_HEIGHT } from '../constants'
 
 export default class View extends SceneNode {
   visible = false
   open = true
 
-  projectThumbNode: RoundCube
+  projectThumbNode: Cube
   projectLabelNode?: Label
 
   project?: Project
@@ -35,6 +36,13 @@ export default class View extends SceneNode {
       return []
     }
     return this.parentNode.children
+  }
+
+  set fadeFactor(v: number) {
+    this.projectThumbNode.fadeFactor = v
+    if (this.projectLabelNode) {
+      this.projectLabelNode.fadeFactor = v
+    }
   }
 
   testRayIntersection(rayStart: vec3, rayDirection: vec3): number | null {
@@ -77,7 +85,7 @@ export default class View extends SceneNode {
     const meshWrapperNode = new SceneNode(View.MESH_WRAPPER_NAME)
     meshWrapperNode.setParent(this)
 
-    this.projectThumbNode = new RoundCube(gl, { geometry: cubeGeometry, name })
+    this.projectThumbNode = new Cube(gl, { geometry: cubeGeometry, name })
     this.projectThumbNode.setParent(meshWrapperNode)
 
     if (hasLabel) {
@@ -85,7 +93,12 @@ export default class View extends SceneNode {
         geometry: labelGeometry,
         label: name,
       })
-      this.projectLabelNode.setPosition([0, 1, 0])
+      const { width, height } = labelGeometry
+      this.projectLabelNode.setPosition([
+        0,
+        CUBE_HEIGHT / 2 + height / 2,
+        CUBE_DEPTH / 2,
+      ])
       this.projectLabelNode.setParent(meshWrapperNode)
     }
   }

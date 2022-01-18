@@ -6,6 +6,7 @@ import {
   LAYOUT_LEVEL_Z_OFFSET,
 } from './constants'
 import { Project, ProjectGroup } from './interfaces'
+import View from './views/view'
 
 /**
  *
@@ -75,7 +76,6 @@ export const getXYZForViewIdxWithinLevel = (
 ): vec3 => {
   const itemsPerRow = LAYOUT_ITEMS_PER_ROW
   const rowWidth = LAYOUT_COLUMN_MAX_WIDTH
-
   const normX = viewIdx % itemsPerRow
   const normY = ((viewIdx - normX) / itemsPerRow) * -1
   const stepX = rowWidth / itemsPerRow
@@ -87,6 +87,17 @@ export const getXYZForViewIdxWithinLevel = (
     vec3.add(pos, pos, optionalOffset)
   }
   return pos
+}
+
+export const getChildrenRowTotalHeight = (view: View) => {
+  const rowHeight =
+    -Math.ceil(view.children.length / LAYOUT_ITEMS_PER_ROW) * 1.5 -
+    view.levelIndex * LAYOUT_LEVEL_Y_OFFSET
+  console.log({
+    levelIndex: view.levelIndex,
+    height: Math.ceil(view.children.length / LAYOUT_ITEMS_PER_ROW),
+  })
+  return rowHeight
 }
 
 export const promisifiedLoadImage = (

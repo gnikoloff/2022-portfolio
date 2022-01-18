@@ -6,6 +6,7 @@ import Line from './meshes/line'
 import './style.css'
 
 import {
+  getChildrenRowTotalHeight,
   getXYZForViewIdxWithinLevel,
   sortProjectEntriesByYear,
   transformProjectEntries,
@@ -17,11 +18,12 @@ import {
   setMousePos,
   setShowCubeHighlight,
 } from './store/ui'
-import View from './view'
+import View from './views/view'
 
 import {
   CameraController,
   createPlane,
+  createBox,
   createRoundedBox,
   OrthographicCamera,
   PerspectiveCamera,
@@ -38,10 +40,36 @@ import {
 
 import { Tween } from './lib/hwoa-rang-anim/dist'
 
-import RoundCube from './meshes/round-cube'
+import Cube from './meshes/cube'
 
 import { vec3 } from 'gl-matrix'
-import { CUBE_DEPTH, CUBE_HEIGHT, CUBE_WIDTH } from './constants'
+import {
+  CAMERA_LEVEL_Z_OFFSET,
+  CUBE_DEFORM_ANGLE,
+  CUBE_DEPTH,
+  CUBE_HEIGHT,
+  CUBE_ROTATION_X_AXIS,
+  CUBE_WIDTH,
+  LABEL_HEIGHT,
+  LABEL_WIDTH,
+  LAYOUT_COLUMN_MAX_WIDTH,
+} from './constants'
+
+import * as dat from 'dat.gui'
+
+const OPTIONS = {
+  cameraFreeMode: false,
+}
+
+const gui = new dat.GUI()
+
+gui.add(OPTIONS, 'cameraFreeMode').onChange((v) => {
+  if (v) {
+    orbitController.start()
+  } else {
+    orbitController.pause()
+  }
+})
 
 let prevView!: View
 
@@ -67,9 +95,17 @@ let uboCameraBlockInfo: UBOInfo
 
 // MegaTexture.debugMode = true
 MegaTexture.gl = gl
-const texManager = MegaTexture.getInstance()
 
 // console.log(texManager)
+
+const freeOrbitCamera = new PerspectiveCamera(
+  deg2Rad(70),
+  $canvas.width / $canvas.height,
+  0.1,
+  35,
+)
+freeOrbitCamera.position = [0, 2, 8]
+freeOrbitCamera.lookAt = [0, 0, 0]
 
 const perspectiveCamera = new PerspectiveCamera(
   deg2Rad(70),
@@ -77,10 +113,10 @@ const perspectiveCamera = new PerspectiveCamera(
   0.1,
   35,
 )
-perspectiveCamera.position = [0, 2, 8]
+perspectiveCamera.position = [0, 0, 8]
 perspectiveCamera.lookAt = [0, 0, 0]
 
-new CameraController(perspectiveCamera)
+const orbitController = new CameraController(freeOrbitCamera)
 
 const orthographicCamera = new OrthographicCamera(
   -innerWidth / 2,
@@ -95,17 +131,32 @@ orthographicCamera.lookAt = [0, 0, 0]
 
 orthographicCamera.updateViewMatrix().updateProjectionViewMatrix()
 
-const { verticesNormalUv, indices } = createPlane({
-  width: innerWidth,
-  height: innerHeight,
-})
+let singleView
 
-fetch('http://localhost:3001/api')
+const cubeGeometry = createBox({
+  width: CUBE_WIDTH,
+  height: CUBE_HEIGHT,
+  depth: CUBE_DEPTH,
+  widthSegments: 30,
+  depthSegments: 30,
+  uvOffsetEachFace: true,
+})
+console.log(cubeGeometry)
+
+fetch('http://192.168.2.123:3001/api')
   .then((projects) => projects.json())
   .then(transformProjectEntries)
   .then((projects: Project[]) => {
     const viewGeoPartialProps = { cubeGeometry, labelGeometry }
     const projectsByYear = sortProjectEntriesByYear(projects)
+
+    // singleView = new SingleView(gl, {
+    //   imageGeometry,
+    //   descGeometry,
+    //   project: projects[0],
+    //   name: 'ar',
+    // })
+    // singleView.updateWorldMatrix()
 
     const projectsNode = new View(gl, {
       ...viewGeoPartialProps,
@@ -203,19 +254,24 @@ fetch('http://localhost:3001/api')
     // boxesRootNode.updateWorldMatrix()
   })
 
-const cubeGeometry = createRoundedBox({
-  width: CUBE_WIDTH,
-  height: CUBE_HEIGHT,
-  depth: CUBE_DEPTH,
-  radius: 0.75,
-  div: 10,
+const imageGeometry = createBox({
+  width: LAYOUT_COLUMN_MAX_WIDTH * (2 / 3) * 0.95,
+  height: LAYOUT_COLUMN_MAX_WIDTH * (2 / 3) * 0.5 * 0.95,
+  depth: LAYOUT_COLUMN_MAX_WIDTH * (2 / 3) * 0.5 * 0.95,
+  uvOffsetEachFace: true,
+})
+const descGeometry = createBox({
+  width: 4,
+  height: 2,
+  depth: 2,
+  uvOffsetEachFace: true,
 })
 const labelGeometry = createPlane({
-  width: 2,
-  height: 0.2,
+  width: LABEL_WIDTH,
+  height: LABEL_HEIGHT,
 })
 
-const hoverCube = new RoundCube(gl, {
+const hoverCube = new Cube(gl, {
   geometry: cubeGeometry,
   solidColor: [0, 0, 1, 1],
 })
@@ -236,7 +292,7 @@ async function onMouseClick(e: MouseEvent) {
   const normY = 2 - (e.pageY / innerHeight) * 2 - 1
   const { rayStart, rayEnd, rayDirection } = projectMouseToWorldSpace(
     [normX, normY],
-    perspectiveCamera,
+    OPTIONS.cameraFreeMode ? freeOrbitCamera : perspectiveCamera,
   )
 
   // debugger
@@ -255,14 +311,18 @@ async function onMouseClick(e: MouseEvent) {
 
   const hitView = getHoveredSceneNode(rayStart, rayDirection)
 
-  const prevLevel = prevView?.levelIndex || 0
-  const currLevel = hitView?.levelIndex
-
-  if (hitView) {
-    store.dispatch(setShowCubeHighlight(false))
+  if (!hitView) {
+    return
   }
 
+  const prevLevel = prevView?.levelIndex || 0
+  const currLevel = hitView.levelIndex
+
+  store.dispatch(setShowCubeHighlight(false))
+
   let showChildRow = true
+  let animateCamera = true
+  let animateCameraDirection: 0 | 1 = 0 // 0 - forward, 1 - backwards
   if (prevView) {
     // debugger
     if (currLevel < prevLevel) {
@@ -304,6 +364,7 @@ async function onMouseClick(e: MouseEvent) {
       hitView.open = false
 
       showChildRow = !prevView.findParentByName(hitView.name as string)
+      animateCameraDirection = 1
     } else if (currLevel === prevLevel) {
       if (hitView.name === prevView.name) {
         for (let i = 0; i < hitView.children.length; i++) {
@@ -337,6 +398,7 @@ async function onMouseClick(e: MouseEvent) {
         }
         hitView.open = !hitViewOpen
         showChildRow = false
+        animateCameraDirection = hitView.open ? 0 : 1
       } else {
         await new Promise((resolve) =>
           new Tween({
@@ -360,34 +422,76 @@ async function onMouseClick(e: MouseEvent) {
         }
 
         hitView.open = !hitView.open
+        if (hitView.children.length && prevView.open) {
+          animateCamera = false
+        }
       }
     }
   }
 
-  if (showChildRow && hitView) {
+  if (!hitView.children.length) {
+    boxesRootNode.traverse((child) => {
+      if (!(child instanceof View)) {
+        return
+      }
+      if (child === hitView) {
+        return
+      }
+      child.fadeFactor = 0.2
+    })
+    showChildRow = false
+    animateCamera = false
+  }
+
+  if (animateCamera) {
+    const oldCamY = perspectiveCamera.position[1]
+    const oldCamLookAtY = perspectiveCamera.lookAt[1]
+    const oldCamZ = perspectiveCamera.position[2]
+    const rowHeight = getChildrenRowTotalHeight(hitView)
+
+    new Tween({
+      durationMS: 1_000,
+      easeName: 'exp_In',
+      onUpdate: (v) => {
+        perspectiveCamera.position[1] = oldCamY + (rowHeight / 2 - oldCamY) * v
+        perspectiveCamera.lookAt[1] =
+          oldCamLookAtY + (rowHeight / 2 - oldCamLookAtY) * v
+
+        const offsetPos =
+          animateCameraDirection === 0
+            ? v * CAMERA_LEVEL_Z_OFFSET
+            : -v * CAMERA_LEVEL_Z_OFFSET
+
+        perspectiveCamera.position[2] = oldCamZ + offsetPos
+      },
+      onComplete: () => {},
+    }).start()
+  }
+
+  if (showChildRow) {
     for (let i = 0; i < hitView.children.length; i++) {
       const view = hitView.children[i] as View
       view.loadThumbnail()
       view.visible = true
     }
-    await new Promise((resolve) =>
+    await new Promise((resolve) => {
       new Tween({
-        durationMS: 1000,
+        durationMS: 1_000,
+        delayMS: 500,
         easeName: 'cubic_Out',
         onUpdate: (v) => {
-          const startRot = Math.PI
-          const startDeformAngle = Math.PI
           for (let i = 0; i < hitView.children.length; i++) {
             const view = hitView.children[i] as View
-            const rot = startRot * (1 - v)
-            const deformAngle = startDeformAngle * (1 - v)
+            const rot = CUBE_ROTATION_X_AXIS * (1 - v)
+            const deformAngle = CUBE_DEFORM_ANGLE * (1 - v)
             view.reveal(v, v, v, rot, 0, 0, deformAngle)
             view.updateWorldMatrix()
           }
         },
         onComplete: () => resolve(null),
-      }).start(),
-    )
+      }).start()
+    })
+
     store.dispatch(setShowCubeHighlight(true))
     store.dispatch(setIsCurrentlyTransitionViews(false))
     hitView.open = true
@@ -405,8 +509,9 @@ async function onMouseClick(e: MouseEvent) {
 function updateFrame(ts: DOMHighResTimeStamp) {
   requestAnimationFrame(updateFrame)
 
-  // console.log(perspectiveCamera.position)
+  // console.log(freeOrbitCamera.position)
 
+  freeOrbitCamera.updateViewMatrix().updateProjectionViewMatrix()
   perspectiveCamera.updateViewMatrix().updateProjectionViewMatrix()
 
   const {
@@ -416,7 +521,7 @@ function updateFrame(ts: DOMHighResTimeStamp) {
   const normY = 2 - (mousePos[1] / innerHeight) * 2 - 1
   const { rayStart, rayEnd, rayDirection } = projectMouseToWorldSpace(
     [normX, normY],
-    perspectiveCamera,
+    OPTIONS.cameraFreeMode ? freeOrbitCamera : perspectiveCamera,
   )
 
   const hitView = getHoveredSceneNode(rayStart, rayDirection)
@@ -437,13 +542,18 @@ function updateFrame(ts: DOMHighResTimeStamp) {
   gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight)
   gl.clearColor(0.1, 0.1, 0.1, 1.0)
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
+  gl.enable(gl.BLEND)
+  gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
 
   if (uboCamera) {
+    const projViewMatix = OPTIONS.cameraFreeMode
+      ? freeOrbitCamera.projectionViewMatrix
+      : perspectiveCamera.projectionViewMatrix
     gl.bindBuffer(gl.UNIFORM_BUFFER, uboCamera)
     gl.bufferSubData(
       gl.UNIFORM_BUFFER,
       uboCameraBlockInfo.uniforms.projectionViewMatrix.offset,
-      perspectiveCamera.projectionViewMatrix as ArrayBufferView,
+      projViewMatix as ArrayBufferView,
       0,
     )
   }
@@ -459,6 +569,10 @@ function updateFrame(ts: DOMHighResTimeStamp) {
     hoverCube.render(ts)
 
     gl.disable(gl.CULL_FACE)
+  }
+
+  if (singleView) {
+    singleView.render()
   }
 
   debugLines.forEach((rayLine) => rayLine.render())
