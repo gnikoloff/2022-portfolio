@@ -1,9 +1,10 @@
 import { vec3 } from 'gl-matrix'
-import {
-  Drawable,
-  PlaneGeometry,
-  ShaderDefineValue,
-} from '../lib/hwoa-rang-gl2/dist'
+import { Drawable } from '../lib/hwoa-rang-gl2/dist'
+
+import VERTEX_SHADER_SRC from '../shaders/uberShader.vert'
+import FRAGMENT_SHADER_SRC from '../shaders/uberShader.frag'
+import { QuadProps } from '../interfaces'
+import { CAMERA_FAR, CAMERA_NEAR } from '../constants'
 
 export default class Quad extends Drawable {
   cameraUBOIndex: GLuint
@@ -29,13 +30,20 @@ export default class Quad extends Drawable {
 
   constructor(
     gl: WebGL2RenderingContext,
-    geometry: PlaneGeometry,
-    vertexShaderSource: string,
-    fragmentShaderSource: string,
-    shaderDefines: { [name: string]: ShaderDefineValue },
-    name?: string,
+    { geometry, uniforms = {}, defines = {}, name }: QuadProps,
   ) {
-    super(gl, vertexShaderSource, fragmentShaderSource, shaderDefines, name)
+    super(
+      gl,
+      VERTEX_SHADER_SRC,
+      FRAGMENT_SHADER_SRC,
+      {
+        CAMERA_NEAR,
+        CAMERA_FAR,
+        ...defines,
+      },
+      name,
+    )
+
     const {
       interleavedArray,
       indicesArray,
@@ -50,6 +58,10 @@ export default class Quad extends Drawable {
     this.boundingBox = {
       min: [-width / 2, height / 2, 0],
       max: [width / 2, -height / 2, 0],
+    }
+
+    for (const [name, { type, value }] of Object.entries(uniforms)) {
+      this.setUniform(name, { type, value })
     }
 
     const interleavedBuffer = gl.createBuffer()
@@ -88,9 +100,11 @@ export default class Quad extends Drawable {
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indicesArray, gl.STATIC_DRAW)
 
     this.cameraUBOIndex = gl.getUniformBlockIndex(this.program, 'Camera')
+
+    this.updateWorldMatrix()
   }
 
-  preRender(cameraUBOBindPoint = 0) {
+  protected preRender(cameraUBOBindPoint: number) {
     const gl = this.gl
     gl.uniformBlockBinding(
       this.program,
@@ -99,5 +113,13 @@ export default class Quad extends Drawable {
     )
     gl.useProgram(this.program)
     this.uploadWorldMatrix()
+  }
+
+  render(cameraUBOBindPoint = 0) {
+    const gl = this.gl
+    this.preRender(cameraUBOBindPoint)
+
+    gl.bindVertexArray(this.vao)
+    gl.drawElements(gl.TRIANGLES, this.vertexCount, gl.UNSIGNED_SHORT, 0)
   }
 }

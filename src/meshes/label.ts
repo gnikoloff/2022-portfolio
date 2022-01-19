@@ -1,9 +1,6 @@
-import { MegaTexture } from '../lib/hwoa-rang-gl2/dist'
+import { TextureAtlas } from '../lib/hwoa-rang-gl2/dist'
 import Quad from './quad'
 import { LabelProps } from '../interfaces'
-
-import VERTEX_SHADER_SRC from '../shaders/uberShader.vert'
-import FRAGMENT_SHADER_SRC from '../shaders/uberShader.frag'
 
 export default class Label extends Quad {
   label: string
@@ -28,31 +25,27 @@ export default class Label extends Quad {
   }
 
   set fadeFactor(v: number) {
-    const gl = this.gl
-    gl.useProgram(this.program)
-    gl.uniform1f(this.uniformLocations.uFadeMixFactor, v)
+    this.updateUniform('u_fadeMixFactor', v)
   }
 
   constructor(gl: WebGL2RenderingContext, { geometry, label }: LabelProps) {
-    super(
-      gl,
+    super(gl, {
       geometry,
-      VERTEX_SHADER_SRC,
-      FRAGMENT_SHADER_SRC,
-      {
+      defines: {
         USE_SHADING: true,
         USE_MODEL_MATRIX: true,
         USE_UV_TRANSFORM: true,
         USE_TEXTURE: true,
+        SUPPORTS_FADING: true,
       },
-      label,
-    )
+      name: label,
+    })
     this.label = label
 
     const { width, height } = geometry
     const aspect = width / height
 
-    const texManager = MegaTexture.getInstance()
+    const texManager = TextureAtlas.getInstance()
     const texWidth = Label.TEXTURE_SIZE
     const texHeight = texWidth / aspect
     const atlasID = `label-${label}`
@@ -64,34 +57,24 @@ export default class Label extends Quad {
     }
     this.textureAtlas = texture
 
-    this.uniformLocations.uFadeMixFactor = gl.getUniformLocation(
-      this.program,
-      'u_fadeMixFactor',
-    )!
-
-    const uvOffsetLocation = gl.getUniformLocation(
-      this.program,
-      'u_uvOffsetSizes',
-    )!
-    const uTextureSize = gl.getUniformLocation(this.program, 'u_textureSize')!
-
-    const textureAtlasLocation = gl.getUniformLocation(
-      this.program,
-      'u_diffuse',
-    )!
-
-    gl.useProgram(this.program)
-    gl.uniform4f(uvOffsetLocation, uvs[0], uvs[1], uvs[4], uvs[5])
-    gl.uniform2f(uTextureSize, labelImage.width, labelImage.height)
-    gl.uniform1i(textureAtlasLocation, 0)
-    gl.uniform1f(this.uniformLocations.uFadeMixFactor, 1)
+    this.setUniform('u_fadeMixFactor', {
+      type: gl.FLOAT,
+      value: 1,
+    })
+    this.setUniform('u_uvOffsetSizes', {
+      type: gl.FLOAT_VEC4,
+      value: new Float32Array([uvs[0], uvs[1], uvs[4], uvs[5]]),
+    })
+    this.setUniform('u_diffuse', {
+      type: gl.INT,
+      value: 0,
+    })
   }
 
-  render(): void {
-    this.preRender()
+  render(cameraUBOBindPoint = 0): void {
+    this.preRender(cameraUBOBindPoint)
 
     const gl = this.gl
-
     gl.activeTexture(gl.TEXTURE0)
     gl.bindTexture(gl.TEXTURE_2D, this.textureAtlas)
 

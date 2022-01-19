@@ -35,7 +35,8 @@ import {
   createUniformBlockInfo,
   UBOInfo,
   intersectRayWithQuad,
-  MegaTexture,
+  createFramebuffer,
+  TextureAtlas,
 } from './lib/hwoa-rang-gl2/dist'
 
 import { Tween } from './lib/hwoa-rang-anim/dist'
@@ -44,7 +45,9 @@ import Cube from './meshes/cube'
 
 import { vec3 } from 'gl-matrix'
 import {
+  CAMERA_FAR,
   CAMERA_LEVEL_Z_OFFSET,
+  CAMERA_NEAR,
   CUBE_DEFORM_ANGLE,
   CUBE_DEPTH,
   CUBE_HEIGHT,
@@ -56,11 +59,19 @@ import {
 } from './constants'
 
 import * as dat from 'dat.gui'
-import Effect from './postfx/effect'
+import Quad from './meshes/quad'
 
 const OPTIONS = {
   cameraFreeMode: false,
+  blurIterations: 8,
+  dofInnerRange: 0.342,
+  dofOuterRange: 0.391,
+  dof: 0.025,
 }
+
+// dof: 0.025,
+//   dofInnerRange: 0.874517,
+//   dofOuterRange: 0.968887,
 
 const gui = new dat.GUI()
 
@@ -71,6 +82,39 @@ gui.add(OPTIONS, 'cameraFreeMode').onChange((v) => {
     orbitController.pause()
   }
 })
+gui.add(OPTIONS, 'blurIterations').min(1).max(25).step(1)
+gui
+  .add(OPTIONS, 'dofInnerRange')
+  .min(CAMERA_NEAR)
+  .max(1)
+  .step(0.001)
+  .onChange((v: number) => {
+    // console.log([v, OPTIONS.dofOuterRange])
+    dofQuad.updateUniform(
+      'u_depthRange',
+      new Float32Array([v, OPTIONS.dofOuterRange]),
+    )
+  })
+gui
+  .add(OPTIONS, 'dofOuterRange')
+  .min(CAMERA_NEAR)
+  .max(1)
+  .step(0.001)
+  .onChange((v: number) => {
+    // console.log([OPTIONS.dofInnerRange, v])
+    dofQuad.updateUniform(
+      'u_depthRange',
+      new Float32Array([OPTIONS.dofInnerRange, v]),
+    )
+  })
+gui
+  .add(OPTIONS, 'dof')
+  .min(CAMERA_NEAR)
+  .max(1)
+  .step(0.001)
+  .onChange((v: number) => {
+    dofQuad.updateUniform('u_dof', v)
+  })
 
 let prevView!: View
 
@@ -95,30 +139,31 @@ let uboPerspectiveCamera: WebGLBuffer
 let uboCameraBlockInfo: UBOInfo
 let uboOrthographicCamera: WebGLBuffer
 
-// MegaTexture.debugMode = true
-MegaTexture.gl = gl
+// TextureAtlas.debugMode = true
+TextureAtlas.gl = gl
 
 // console.log(texManager)
 
 const freeOrbitCamera = new PerspectiveCamera(
   deg2Rad(70),
   $canvas.width / $canvas.height,
-  0.1,
-  35,
+  CAMERA_NEAR,
+  CAMERA_FAR,
 )
-freeOrbitCamera.position = [0, 2, 8]
+freeOrbitCamera.position = [0, 2, 3]
 freeOrbitCamera.lookAt = [0, 0, 0]
 
 const perspectiveCamera = new PerspectiveCamera(
   deg2Rad(70),
   $canvas.width / $canvas.height,
-  0.1,
-  35,
+  CAMERA_NEAR,
+  CAMERA_FAR,
 )
 perspectiveCamera.position = [0, 0, 8]
 perspectiveCamera.lookAt = [0, 0, 0]
 
 const orbitController = new CameraController(freeOrbitCamera)
+orbitController.pause()
 
 const orthographicCamera = new OrthographicCamera(
   -innerWidth / 2,
@@ -144,7 +189,78 @@ const cubeGeometry = createBox({
   uvOffsetEachFace: true,
 })
 
-const fx = new Effect(gl).updateWorldMatrix()
+const blurDirection = new Float32Array([1, 0])
+
+const fboCopy = createFramebuffer(gl, innerWidth, innerHeight, true, 'fboCopy')
+const fboBlurPing = createFramebuffer(
+  gl,
+  innerWidth,
+  innerHeight,
+  false,
+  'blurPing',
+)
+const fboBlurPong = createFramebuffer(
+  gl,
+  innerWidth,
+  innerHeight,
+  false,
+  'blurPong',
+)
+
+const fullscreenQuadGeo = createPlane({
+  width: innerWidth,
+  height: innerHeight,
+  flipUVy: true,
+})
+
+const blurQuad = new Quad(gl, {
+  geometry: fullscreenQuadGeo,
+  uniforms: {
+    u_diffuse: {
+      type: gl.INT,
+      value: 0,
+    },
+    u_resolution: {
+      type: gl.FLOAT_VEC2,
+      value: new Float32Array([innerWidth, innerHeight]),
+    },
+    u_blurDirection: {
+      type: gl.FLOAT_VEC2,
+      value: blurDirection,
+    },
+  },
+  defines: { USE_TEXTURE: true, USE_GAUSSIAN_BLUR: true },
+  name: 'blurQuad',
+})
+const dofQuad = new Quad(gl, {
+  geometry: fullscreenQuadGeo,
+  uniforms: {
+    u_diffuse: {
+      type: gl.INT,
+      value: 0,
+    },
+    u_blurTexture: {
+      type: gl.INT,
+      value: 1,
+    },
+    u_depthTexture: {
+      type: gl.INT,
+      value: 2,
+    },
+    u_depthRange: {
+      type: gl.FLOAT_VEC2,
+      value: new Float32Array([OPTIONS.dofInnerRange, OPTIONS.dofOuterRange]),
+    },
+    u_dof: {
+      type: gl.FLOAT,
+      value: OPTIONS.dof,
+    },
+  },
+  defines: {
+    USE_TEXTURE: true,
+    USE_DOF: true,
+  },
+})
 
 fetch('http://192.168.2.123:3001/api')
   .then((projects) => projects.json())
@@ -581,15 +697,17 @@ function updateFrame(ts: DOMHighResTimeStamp) {
 
   gl.bindBuffer(gl.UNIFORM_BUFFER, null)
 
-  fx.bind().toggleDepth().clear()
+  gl.bindFramebuffer(gl.FRAMEBUFFER, fboCopy.framebuffer)
+  gl.clearColor(0.1, 0.1, 0.1, 1.0)
+  gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 
   if (uboPerspectiveCamera) {
-    boxesRootNode.render(ts)
+    boxesRootNode.render()
 
     gl.enable(gl.CULL_FACE)
     gl.cullFace(gl.FRONT)
     hoverCube.updateWorldMatrix()
-    hoverCube.render(ts)
+    hoverCube.render()
 
     gl.disable(gl.CULL_FACE)
   }
@@ -600,11 +718,41 @@ function updateFrame(ts: DOMHighResTimeStamp) {
 
   debugLines.forEach((rayLine) => rayLine.render())
 
-  fx.unbind()
+  let writeBuffer = fboBlurPing
+  let readBuffer = fboBlurPong
+  const blurIterations = OPTIONS.blurIterations
 
-  if (uboOrthographicCamera) {
-    fx.render()
+  for (let i = 0; i < blurIterations; i++) {
+    gl.bindFramebuffer(gl.FRAMEBUFFER, writeBuffer.framebuffer)
+    gl.clearColor(0.1, 0.1, 0.1, 1.0)
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
+
+    const radius = blurIterations - i - 1
+    blurDirection[0] = i % 2 === 0 ? radius : 0
+    blurDirection[1] = i % 2 === 0 ? 0 : radius
+
+    gl.activeTexture(gl.TEXTURE0)
+    gl.bindTexture(
+      gl.TEXTURE_2D,
+      i === 0 ? fboCopy.texture : readBuffer.texture,
+    )
+    blurQuad.updateUniform('u_blurDirection', blurDirection)
+    blurQuad.render(1)
+
+    const t = writeBuffer
+    writeBuffer = readBuffer
+    readBuffer = t
   }
+
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+  gl.activeTexture(gl.TEXTURE0)
+  gl.bindTexture(gl.TEXTURE_2D, fboCopy.texture)
+  gl.activeTexture(gl.TEXTURE1)
+  gl.bindTexture(gl.TEXTURE_2D, writeBuffer.texture)
+  gl.activeTexture(gl.TEXTURE2)
+  gl.bindTexture(gl.TEXTURE_2D, fboCopy.depthTexture!)
+
+  dofQuad.render(1)
 }
 
 function getHoveredSceneNode(rayStart: vec3, rayDirection: vec3): View {

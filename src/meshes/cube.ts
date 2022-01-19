@@ -1,5 +1,5 @@
 import { vec3 } from 'gl-matrix'
-import { Drawable, BoundingBox, MegaTexture } from '../lib/hwoa-rang-gl2/dist'
+import { Drawable, BoundingBox, TextureAtlas } from '../lib/hwoa-rang-gl2/dist'
 
 import { CubeProps } from '../interfaces'
 import { CUBE_HEIGHT, CUBE_WIDTH } from '../constants'
@@ -22,9 +22,7 @@ export default class Cube extends Drawable {
   }
 
   set deformationAngle(deformAngle: number) {
-    const gl = this.gl
-    gl.useProgram(this.program)
-    gl.uniform1f(this.uniformLocations.deformAngle, deformAngle)
+    this.updateUniform('u_deformAngle', deformAngle)
   }
 
   set fadeFactor(v: number) {
@@ -39,7 +37,6 @@ export default class Cube extends Drawable {
   ) {
     const defines = {
       USE_SHADING: true,
-      USE_MODEL_MATRIX: true,
       USE_SOLID_COLOR: !!solidColor,
       USE_DEFORM: true,
       USE_TEXTURE: true,
@@ -48,6 +45,7 @@ export default class Cube extends Drawable {
       MESH_WIDTH: CUBE_WIDTH,
       MESH_HEIGHT: CUBE_HEIGHT,
       IS_CUBE: true,
+      SUPPORTS_FADING: true,
     }
     super(gl, VERTEX_SHADER_SRC, FRAGMENT_SHADER_SRC, defines)
 
@@ -70,31 +68,33 @@ export default class Cube extends Drawable {
       max: vec3.fromValues(width / 2, height / 2, depth / 2),
     }
 
-    this.uniformLocations.deformAngle = gl.getUniformLocation(
-      this.program,
-      'deformAngle',
-    )!
-    this.uniformLocations.uvOffsetLocation = gl.getUniformLocation(
-      this.program,
-      'u_uvOffsetSizes',
-    )!
-    this.uniformLocations.uTextureSize = gl.getUniformLocation(
-      this.program,
-      'u_textureSize',
-    )
-    this.uniformLocations.uFadeMixFactor = gl.getUniformLocation(
-      this.program,
-      'u_fadeMixFactor',
-    )!
+    // console.log('------------------------------------')
+    // const numUniforms = gl.getProgramParameter(this.program, gl.ACTIVE_UNIFORMS)
+    // for (let i = 0; i < numUniforms; ++i) {
+    //   const info = gl.getActiveUniform(this.program, i)
+    //   console.log('name:', info.name, 'type:', info.type, 'size:', info.size)
+    // }
 
-    const textureAtlasLocation = gl.getUniformLocation(
-      this.program,
-      'u_diffuse',
-    )
+    this.setUniform('u_deformAngle', {
+      type: gl.FLOAT,
+    })
+    this.setUniform('u_fadeMixFactor', {
+      type: gl.FLOAT,
+      value: 1,
+    })
+    this.setUniform('u_uvOffsetSizes', {
+      type: gl.FLOAT_VEC4,
+    })
+    this.setUniform('u_textureSize', {
+      type: gl.FLOAT_VEC2,
+    })
 
-    gl.useProgram(this.program)
-    gl.uniform1i(textureAtlasLocation, 0)
-    gl.uniform1f(this.uniformLocations.uFadeMixFactor, 1)
+    if (!solidColor) {
+      this.setUniform('u_diffuse', {
+        type: gl.INT,
+        value: 0,
+      })
+    }
 
     const interleavedBuffer = gl.createBuffer()
     const indexBuffer = gl.createBuffer()
@@ -104,19 +104,10 @@ export default class Cube extends Drawable {
     const aUvLoc = gl.getAttribLocation(this.program, 'aUv')
 
     if (solidColor) {
-      const solidColorUniformLocation = gl.getUniformLocation(
-        this.program,
-        'solidColor',
-      )
-      gl.useProgram(this.program)
-      gl.uniform4f(
-        solidColorUniformLocation,
-        solidColor[0],
-        solidColor[1],
-        solidColor[2],
-        solidColor[3],
-      )
-      gl.useProgram(null)
+      this.setUniform('u_solidColor', {
+        type: gl.FLOAT_VEC4,
+        value: solidColor as Float32Array,
+      })
     }
 
     gl.bindVertexArray(this.vao)
@@ -165,7 +156,7 @@ export default class Cube extends Drawable {
     if (!this.name) {
       throw new Error('you need to supply a name in order to display a poster')
     }
-    const texManager = MegaTexture.getInstance()
+    const texManager = TextureAtlas.getInstance()
     texManager.pack(this.name, poster)
     const [uvs, texture] = texManager.getUv2(this.name)
     if (!uvs) {
@@ -173,25 +164,20 @@ export default class Cube extends Drawable {
     }
     this.textureAtlas = texture
 
-    const gl = this.gl
-    gl.useProgram(this.program)
-    gl.uniform4f(
-      this.uniformLocations.uvOffsetLocation,
-      uvs[0],
-      uvs[1],
-      uvs[4],
-      uvs[5],
+    this.updateUniform(
+      'u_uvOffsetSizes',
+      new Float32Array([uvs[0], uvs[1], uvs[4], uvs[5]]),
     )
-    gl.uniform2f(
-      this.uniformLocations.uTextureSize,
-      poster.width,
-      poster.height,
+    this.updateUniform(
+      'u_textureSize',
+      new Float32Array([poster.width, poster.height]),
     )
+    // debugger
 
     this.posterLoaded = true
   }
 
-  render(timeMS: DOMHighResTimeStamp): void {
+  render(): void {
     const gl = this.gl
     gl.uniformBlockBinding(this.program, this.cameraUBOIndex, 0)
     gl.useProgram(this.program)

@@ -8,6 +8,14 @@ uniform Camera {
 
 uniform mat4 u_worldMatrix;
 
+#ifdef USE_TEXTURE
+  uniform sampler2D diffuse;
+#endif
+
+#ifdef USE_DEFORM
+  uniform float u_deformAngle;
+#endif
+
 in vec4 aPosition;
 in vec2 aUv;
 
@@ -20,30 +28,9 @@ in vec2 aUv;
   in mat4 aInstanceMatrix;
 #endif
 
-#ifdef USE_TEXTURE
-  uniform sampler2D diffuse;
-#endif
-
-#ifdef USE_DEFORM
-  uniform float deformAngle;
-#endif
-
 out vec2 vUv;
 
-// https://www.ozone3d.net/tutorials/mesh_deformer_p3.php
-vec4 doTwist(vec4 pos, float t) {
-	float st = sin(t);
-	float ct = cos(t);
-	vec4 new_pos;
-	
-	new_pos.y = pos.y*ct - pos.z*st;
-	new_pos.z = pos.y*st + pos.z*ct;
-	
-	new_pos.x = pos.x;
-	new_pos.w = pos.w;
-
-	return new_pos;
-}
+#include utils/do-box-twist;
 
 void main () {
   mat4 worldMatrix = mat4(1.0);
@@ -57,19 +44,19 @@ void main () {
   vec4 position = aPosition;
 
   #ifdef USE_DEFORM
-    float ang = (position.x + 0.5) * sin(deformAngle) * deformAngle;
-    position = doTwist(position, ang);
+    float ang = (position.x + 0.5) * sin(u_deformAngle) * u_deformAngle;
+    position = doBoxTwist(position, ang);
   #endif
 
   gl_Position = projectionViewMatrix * worldMatrix * position;
+  vUv = aUv;
 
   #ifdef USE_SHADING
     vec4 normal = aNormal;
     #ifdef USE_DEFORM
-      normal = doTwist(normal, ang);
+      normal = doBoxTwist(normal, ang);
     #endif
     vNormal = normal;
   #endif
 
-  vUv = aUv;
 }

@@ -13,3 +13,6 @@ export const CUBE_DEFORM_ANGLE = Math.PI * 0.5
 
 export const LABEL_WIDTH = CUBE_WIDTH
 export const LABEL_HEIGHT = 0.4
+
+export const CAMERA_NEAR = 0.1
+export const CAMERA_FAR = 30

@@ -1,6 +1,11 @@
 import { vec4 } from 'gl-matrix'
 import { Action } from 'redux'
-import { BoxGeometry, PlaneGeometry, Plane } from './lib/hwoa-rang-gl2/dist'
+import {
+  BoxGeometry,
+  PlaneGeometry,
+  ShaderDefineValue,
+  UniformValue,
+} from './lib/hwoa-rang-gl2/dist'
 
 export interface UBOVariable {
   offset: number
@@ -33,6 +38,9 @@ export interface ProjectGroup {
 
 export interface QuadProps {
   geometry: PlaneGeometry
+  uniforms?: { [name: string]: { type: GLuint; value: UniformValue } }
+  defines?: { [name: string]: ShaderDefineValue }
+  name?: string
 }
 
 export interface LabelProps extends QuadProps {
