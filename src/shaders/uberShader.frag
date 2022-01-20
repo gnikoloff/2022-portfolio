@@ -58,7 +58,7 @@ void main () {
   #ifdef IS_CUBE
     float faceStep = 1.0 / FACE_COUNT;
     if (vUv.x > FACE_STEP && vUv.x < FACE_STEP2) {
-      uv = mapVec2Range(vUv, vec2(FACE_STEP), vec2(FACE_STEP2), vec2(0.0), vec2(1.0));
+      uv = mapVec2Range(uv, vec2(FACE_STEP), vec2(FACE_STEP2), vec2(0.0), vec2(1.0));
       borderUV = uv;
     }
   #endif
@@ -107,12 +107,11 @@ void main () {
           finalColor = blur9(u_diffuse, uv, u_resolution, u_blurDirection);
         #else
           #ifdef USE_DOF
-            vec4 mainColor = texture(u_diffuse, vUv);
-            vec4 blurColor = texture(u_blurTexture, vUv);
-
-
-            float depth = linearizeDepth(texture(u_depthTexture, vUv).r, CAMERA_NEAR, CAMERA_FAR) / CAMERA_FAR;
-            float mix_ = max(0.0, (abs(u_dof - depth) - u_depthRange.x));
+            vec4 mainColor = texture(u_diffuse, uv);
+            vec4 blurColor = texture(u_blurTexture, uv);
+            float depth = linearizeDepth(texture(u_depthTexture, uv).r, CAMERA_NEAR, CAMERA_FAR) / CAMERA_FAR;
+            // float depth = texture(u_depthTexture, uv).r;
+            float mix_ = max(0.0, (depth < u_dof ? abs(u_dof - depth) : abs(depth - u_dof) - u_depthRange.x));
             float mixAmount = 0.0;
             float blurRange = u_depthRange.y - u_depthRange.x;
             if (mix_ > blurRange) {
@@ -122,9 +121,9 @@ void main () {
             }
             // finalColor = vec4(vec3(linearizeDepth(depth, CAMERA_NEAR, CAMERA_FAR) / CAMERA_FAR), 1.0);
             finalColor = mix(mainColor, blurColor, mixAmount);
-            // finalColor = vec4(vec3(depth), 1.0);
+            // finalColor = vec4(vec3(mixAmount), 1.0);
           #else
-            finalColor = texture(u_diffuse, vUv, -0.5);
+            finalColor = texture(u_diffuse, uv, -0.5);
           #endif
         #endif
       #endif

@@ -8,7 +8,12 @@ import Cube from '../meshes/cube'
 import { Project, ViewProps } from '../interfaces'
 import Label from '../meshes/label'
 import { promisifiedLoadImage } from '../helpers'
-import { CUBE_DEPTH, CUBE_HEIGHT } from '../constants'
+import {
+  CUBE_DEPTH,
+  CUBE_HEIGHT,
+  LABEL_MARGIN_Y,
+  LABEL_MARGIN_Z,
+} from '../constants'
 
 export default class View extends SceneNode {
   visible = false
@@ -93,11 +98,11 @@ export default class View extends SceneNode {
         geometry: labelGeometry,
         label: name,
       })
-      const { width, height } = labelGeometry
+      const { height } = labelGeometry
       this.projectLabelNode.setPosition([
         0,
-        CUBE_HEIGHT / 2 + height / 2,
-        CUBE_DEPTH / 2,
+        -CUBE_HEIGHT / 2 - height / 2 - LABEL_MARGIN_Y,
+        CUBE_DEPTH / 2 + LABEL_MARGIN_Z,
       ])
       this.projectLabelNode.setParent(meshWrapperNode)
     }
@@ -152,10 +157,10 @@ export default class View extends SceneNode {
     this.projectThumbNode.deformationAngle = deformAngle
   }
 
-  render(timeMS: DOMHighResTimeStamp): void {
+  render(): void {
     if (!this.visible) {
       return
     }
-    this._children.forEach((child) => child.render(timeMS))
+    this._children.forEach((child) => child.render())
   }
 }

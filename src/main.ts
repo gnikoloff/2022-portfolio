@@ -63,15 +63,13 @@ import Quad from './meshes/quad'
 
 const OPTIONS = {
   cameraFreeMode: false,
-  blurIterations: 8,
-  dofInnerRange: 0.342,
-  dofOuterRange: 0.391,
-  dof: 0.025,
+  blurIterations: 25,
+  dofInnerRange: 0.3,
+  dofOuterRange: 0.47,
+  dof: -0.02269,
 }
 
-// dof: 0.025,
-//   dofInnerRange: 0.874517,
-//   dofOuterRange: 0.968887,
+let oldTime = 0
 
 const gui = new dat.GUI()
 
@@ -82,12 +80,13 @@ gui.add(OPTIONS, 'cameraFreeMode').onChange((v) => {
     orbitController.pause()
   }
 })
+const optionsStep = 0.00001
 gui.add(OPTIONS, 'blurIterations').min(1).max(25).step(1)
 gui
   .add(OPTIONS, 'dofInnerRange')
-  .min(CAMERA_NEAR)
-  .max(1)
-  .step(0.001)
+  .min(0.1)
+  .max(2)
+  .step(optionsStep)
   .onChange((v: number) => {
     // console.log([v, OPTIONS.dofOuterRange])
     dofQuad.updateUniform(
@@ -97,9 +96,9 @@ gui
   })
 gui
   .add(OPTIONS, 'dofOuterRange')
-  .min(CAMERA_NEAR)
-  .max(1)
-  .step(0.001)
+  .min(0.1)
+  .max(2)
+  .step(optionsStep)
   .onChange((v: number) => {
     // console.log([OPTIONS.dofInnerRange, v])
     dofQuad.updateUniform(
@@ -109,9 +108,9 @@ gui
   })
 gui
   .add(OPTIONS, 'dof')
-  .min(CAMERA_NEAR)
+  .min(-2)
   .max(1)
-  .step(0.001)
+  .step(optionsStep)
   .onChange((v: number) => {
     dofQuad.updateUniform('u_dof', v)
   })
@@ -343,7 +342,7 @@ fetch('http://192.168.2.123:3001/api')
         const project = projects[i]
         const projectNode = new View(gl, {
           ...viewGeoPartialProps,
-          name: project.uid,
+          name: project.title,
           project,
           hasLabel: true,
         })
@@ -635,12 +634,12 @@ async function onMouseClick(e: MouseEvent) {
 }
 
 function updateFrame(ts: DOMHighResTimeStamp) {
+  const dt = ts - oldTime
+  oldTime = ts
+
   requestAnimationFrame(updateFrame)
 
   // console.log(freeOrbitCamera.position)
-
-  freeOrbitCamera.updateViewMatrix().updateProjectionViewMatrix()
-  perspectiveCamera.updateViewMatrix().updateProjectionViewMatrix()
 
   const {
     ui: { mousePos },
@@ -664,6 +663,27 @@ function updateFrame(ts: DOMHighResTimeStamp) {
   } else {
     hoverCube.setPosition([100, 100, 100])
   }
+
+  // update camera
+  {
+    // const {
+    //   ui: { mousePos },
+    // } = store.getState()
+    // const mx = mousePos[0] / innerWidth - 0.5
+    // const my = mousePos[1] / innerHeight - 0.5
+    // const camX = perspectiveCamera.position[0]
+    // const camY = perspectiveCamera.position[1]
+    // // const camZ = perspectiveCamera.position[2]
+    // const speed = dt * 0.001 * 2
+    // const x = camX + (mx - camX) * speed * 2
+    // const y = camY + (my - camY) * speed
+    // const z = perspectiveCamera.position[2]
+    // // console.log(mx, my)
+    // perspectiveCamera.position = [x, y, z]
+  }
+
+  freeOrbitCamera.updateViewMatrix().updateProjectionViewMatrix()
+  perspectiveCamera.updateViewMatrix().updateProjectionViewMatrix()
 
   gl.enable(gl.DEPTH_TEST)
 
