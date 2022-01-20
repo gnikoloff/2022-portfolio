@@ -25,7 +25,7 @@ export default class View extends SceneNode {
   project?: Project
 
   static ROTATION_X_AXIS = Math.PI
-  static DEFORM_ANGLE = Math.PI * 0.5
+  static DEFORM_ANGLE = Math.PI * 0.3
   static MESH_WRAPPER_NAME = 'mesh-wrapper'
 
   get sampleProgram(): WebGLProgram {

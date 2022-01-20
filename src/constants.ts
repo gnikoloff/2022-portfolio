@@ -18,6 +18,7 @@ export const LABEL_MARGIN_Z = 0.1
 
 export const CAMERA_NEAR = 0.1
 export const CAMERA_FAR = 30
+export const CAMERA_FOCUS_OFFSET_Z = 5
 
 export const TRANSITION_CAMERA_DURATION = 1_000
 export const TRANSITION_CAMERA_EASE: easeType = 'quint_InOut'

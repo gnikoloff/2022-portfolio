@@ -13,6 +13,7 @@ import {
 } from './helpers'
 
 import {
+  setActiveLevelIdx,
   setIsCurrentlyTransitionViews,
   setIsHovering,
   setMousePos,
@@ -37,15 +38,17 @@ import {
   intersectRayWithQuad,
   createFramebuffer,
   TextureAtlas,
+  mapNumberRange,
 } from './lib/hwoa-rang-gl2/dist'
 
 import { Tween } from './lib/hwoa-rang-anim/dist'
 
 import Cube from './meshes/cube'
 
-import { vec3 } from 'gl-matrix'
+import { mat4, vec3 } from 'gl-matrix'
 import {
   CAMERA_FAR,
+  CAMERA_FOCUS_OFFSET_Z,
   CAMERA_LEVEL_Z_OFFSET,
   CAMERA_NEAR,
   CUBE_DEPTH,
@@ -86,38 +89,38 @@ gui.add(OPTIONS, 'cameraFreeMode').onChange((v) => {
 })
 const optionsStep = 0.00001
 gui.add(OPTIONS, 'blurIterations').min(1).max(25).step(1)
-gui
-  .add(OPTIONS, 'dofInnerRange')
-  .min(0.1)
-  .max(2)
-  .step(optionsStep)
-  .onChange((v: number) => {
-    // console.log([v, OPTIONS.dofOuterRange])
-    dofQuad.updateUniform(
-      'u_depthRange',
-      new Float32Array([v, OPTIONS.dofOuterRange]),
-    )
-  })
-gui
-  .add(OPTIONS, 'dofOuterRange')
-  .min(0.1)
-  .max(2)
-  .step(optionsStep)
-  .onChange((v: number) => {
-    // console.log([OPTIONS.dofInnerRange, v])
-    dofQuad.updateUniform(
-      'u_depthRange',
-      new Float32Array([OPTIONS.dofInnerRange, v]),
-    )
-  })
-gui
-  .add(OPTIONS, 'dof')
-  .min(-2)
-  .max(1)
-  .step(optionsStep)
-  .onChange((v: number) => {
-    dofQuad.updateUniform('u_dof', v)
-  })
+// gui
+//   .add(OPTIONS, 'dofInnerRange')
+//   .min(0.1)
+//   .max(2)
+//   .step(optionsStep)
+//   .onChange((v: number) => {
+//     // console.log([v, OPTIONS.dofOuterRange])
+//     dofQuad.updateUniform(
+//       'u_depthRange',
+//       new Float32Array([v, OPTIONS.dofOuterRange]),
+//     )
+//   })
+// gui
+//   .add(OPTIONS, 'dofOuterRange')
+//   .min(0.1)
+//   .max(2)
+//   .step(optionsStep)
+//   .onChange((v: number) => {
+//     // console.log([OPTIONS.dofInnerRange, v])
+//     dofQuad.updateUniform(
+//       'u_depthRange',
+//       new Float32Array([OPTIONS.dofInnerRange, v]),
+//     )
+//   })
+// gui
+//   .add(OPTIONS, 'dof')
+//   .min(-2)
+//   .max(1)
+//   .step(optionsStep)
+//   .onChange((v: number) => {
+//     dofQuad.updateUniform('u_dof', v)
+//   })
 
 let prevView!: View
 
@@ -197,76 +200,76 @@ const cubeGeometry = createBox({
 
 const blurDirection = new Float32Array([1, 0])
 
-const fboCopy = createFramebuffer(gl, innerWidth, innerHeight, true, 'fboCopy')
-const fboBlurPing = createFramebuffer(
-  gl,
-  innerWidth,
-  innerHeight,
-  false,
-  'blurPing',
-)
-const fboBlurPong = createFramebuffer(
-  gl,
-  innerWidth,
-  innerHeight,
-  false,
-  'blurPong',
-)
+// const fboCopy = createFramebuffer(gl, innerWidth, innerHeight, true, 'fboCopy')
+// const fboBlurPing = createFramebuffer(
+//   gl,
+//   innerWidth,
+//   innerHeight,
+//   false,
+//   'blurPing',
+// )
+// const fboBlurPong = createFramebuffer(
+//   gl,
+//   innerWidth,
+//   innerHeight,
+//   false,
+//   'blurPong',
+// )
 
-const fullscreenQuadGeo = createPlane({
-  width: innerWidth,
-  height: innerHeight,
-  flipUVy: true,
-})
+// const fullscreenQuadGeo = createPlane({
+//   width: innerWidth,
+//   height: innerHeight,
+//   flipUVy: true,
+// })
 
-const blurQuad = new Quad(gl, {
-  geometry: fullscreenQuadGeo,
-  uniforms: {
-    u_diffuse: {
-      type: gl.INT,
-      value: 0,
-    },
-    u_resolution: {
-      type: gl.FLOAT_VEC2,
-      value: new Float32Array([innerWidth, innerHeight]),
-    },
-    u_blurDirection: {
-      type: gl.FLOAT_VEC2,
-      value: blurDirection,
-    },
-  },
-  defines: { USE_TEXTURE: true, USE_GAUSSIAN_BLUR: true },
-  name: 'blurQuad',
-})
-const dofQuad = new Quad(gl, {
-  geometry: fullscreenQuadGeo,
-  uniforms: {
-    u_diffuse: {
-      type: gl.INT,
-      value: 0,
-    },
-    u_blurTexture: {
-      type: gl.INT,
-      value: 1,
-    },
-    u_depthTexture: {
-      type: gl.INT,
-      value: 2,
-    },
-    u_depthRange: {
-      type: gl.FLOAT_VEC2,
-      value: new Float32Array([OPTIONS.dofInnerRange, OPTIONS.dofOuterRange]),
-    },
-    u_dof: {
-      type: gl.FLOAT,
-      value: OPTIONS.dof,
-    },
-  },
-  defines: {
-    USE_TEXTURE: true,
-    USE_DOF: true,
-  },
-})
+// const blurQuad = new Quad(gl, {
+//   geometry: fullscreenQuadGeo,
+//   uniforms: {
+//     u_diffuse: {
+//       type: gl.INT,
+//       value: 0,
+//     },
+//     u_resolution: {
+//       type: gl.FLOAT_VEC2,
+//       value: new Float32Array([innerWidth, innerHeight]),
+//     },
+//     u_blurDirection: {
+//       type: gl.FLOAT_VEC2,
+//       value: blurDirection,
+//     },
+//   },
+//   defines: { USE_TEXTURE: true, USE_GAUSSIAN_BLUR: true },
+//   name: 'blurQuad',
+// })
+// const dofQuad = new Quad(gl, {
+//   geometry: fullscreenQuadGeo,
+//   uniforms: {
+//     u_diffuse: {
+//       type: gl.INT,
+//       value: 0,
+//     },
+//     u_blurTexture: {
+//       type: gl.INT,
+//       value: 1,
+//     },
+//     u_depthTexture: {
+//       type: gl.INT,
+//       value: 2,
+//     },
+//     u_depthRange: {
+//       type: gl.FLOAT_VEC2,
+//       value: new Float32Array([OPTIONS.dofInnerRange, OPTIONS.dofOuterRange]),
+//     },
+//     u_dof: {
+//       type: gl.FLOAT,
+//       value: OPTIONS.dof,
+//     },
+//   },
+//   defines: {
+//     USE_TEXTURE: true,
+//     USE_DOF: true,
+//   },
+// })
 
 fetch('http://192.168.2.123:3001/api')
   .then((projects) => projects.json())
@@ -417,6 +420,8 @@ hoverCube.setParent(rootNode)
 
 document.body.addEventListener('mousemove', onMouseMove)
 document.body.addEventListener('click', onMouseClick)
+// document.body.addEventListener('touchstart', (e) => e.preventDefault())
+// document.body.addEventListener('touchmove', (e) => e.preventDefault())
 requestAnimationFrame(updateFrame)
 
 function onMouseMove(e: MouseEvent) {
@@ -443,11 +448,217 @@ async function onMouseClick(e: MouseEvent) {
   if (isCurrentlyTransitionViews) {
     return
   }
-
   const hitView = getHoveredSceneNode(rayStart, rayDirection)
 
   if (!hitView) {
+    let newLevelIndex = store.getState().ui.activeLevelIdx
+    if (newLevelIndex === -1) {
+      return
+    }
+
+    if (prevView?.project) {
+      new Tween({
+        durationMS: 500,
+        easeName: 'exp_In',
+        onUpdate: (v) => {
+          boxesRootNode.traverse((child) => {
+            if (!(child instanceof View)) {
+              return
+            }
+            if (child === prevView) {
+              // child.fadeFactor = v
+              return
+            }
+            child.fadeFactor = mapNumberRange(v, 0, 1, 0.2, 1)
+          })
+        },
+      }).start()
+    }
+
+    const viewsToClose: SceneNode[] = []
+
+    await new Promise((resolve) => {
+      rootNode.traverse((child) => {
+        const view = child as View
+        if (view.findParentByName(View.MESH_WRAPPER_NAME)) {
+          return
+        }
+        // if (view.levelIndex === prevView.levelIndex) {
+        //   viewsToClose.push(...view.siblings)
+        // }
+        if (view.levelIndex > newLevelIndex + 2) {
+          viewsToClose.push(view)
+        }
+        new Tween({
+          durationMS: TRANSITION_ROW_DURATION,
+          easeName: TRANSITION_ROW_EASE,
+          onUpdate: (v) => {
+            for (let i = 0; i < viewsToClose.length; i++) {
+              const view = viewsToClose[i] as View
+              view.visibilityTweenFactor = 1 - v
+            }
+          },
+          onComplete: () => resolve(null),
+        }).start()
+      })
+    })
+
+    for (let i = 0; i < viewsToClose.length; i++) {
+      const view = viewsToClose[i] as View
+      view.visible = false
+    }
+
+    console.log({ newLevelIndex })
+
+    let childrenPrevRowCount = 0
+    rootNode.traverse((child) => {
+      const view = child as View
+      if (view.levelIndex === newLevelIndex + 2) {
+        childrenPrevRowCount++
+      }
+    })
+
+    console.log({ childrenPrevRowCount })
+
+    const oldCamX = perspectiveCamera.position[0]
+    const oldCamY = perspectiveCamera.position[1]
+    const oldCamLookAtX = perspectiveCamera.lookAt[0]
+    const oldCamLookAtY = perspectiveCamera.lookAt[1]
+    const oldCamZ = perspectiveCamera.position[2]
+    const rowHeight = getChildrenRowTotalHeight(childrenPrevRowCount)
+    const offset = -2
+    const rowCenter =
+      -rowHeight / 2 - LAYOUT_LEVEL_Y_OFFSET * (newLevelIndex + 2 + offset)
+
+    const offsetPos = 8 + (newLevelIndex + 2 + offset) * CAMERA_LEVEL_Z_OFFSET
+
+    const cameraTargetX = 0
+    const cameraTargetY = rowCenter
+
+    new Tween({
+      durationMS: TRANSITION_CAMERA_DURATION,
+      easeName: TRANSITION_CAMERA_EASE,
+      onUpdate: (v) => {
+        perspectiveCamera.position[0] = oldCamX + (cameraTargetX - oldCamX) * v
+        perspectiveCamera.position[1] = oldCamY + (cameraTargetY - oldCamY) * v
+        perspectiveCamera.position[2] = oldCamZ + (offsetPos - oldCamZ) * v
+
+        perspectiveCamera.lookAt[0] = oldCamLookAtX - oldCamLookAtX * v
+        perspectiveCamera.lookAt[1] =
+          oldCamLookAtY + (rowCenter - oldCamLookAtY) * v
+      },
+      onComplete: () => {},
+    }).start()
+
+    newLevelIndex--
+    store.dispatch(setActiveLevelIdx(newLevelIndex))
+    prevView = hitView
     return
+  }
+  store.dispatch(setActiveLevelIdx(hitView.levelIndex - 2))
+  store.dispatch(setIsCurrentlyTransitionViews(true))
+
+  if (hitView.project) {
+    const projectX = hitView.position[0]
+    const projectY = hitView.position[1]
+    const projectZ = hitView.position[2]
+    const newZ = projectZ + CAMERA_FOCUS_OFFSET_Z
+
+    const camOldX = perspectiveCamera.position[0]
+    const camOldY = perspectiveCamera.position[1]
+    const camOldZ = perspectiveCamera.position[2]
+    const camOldLookAtX = perspectiveCamera.lookAt[0]
+    const camOldLookAtY = perspectiveCamera.lookAt[1]
+    const camOldLookAtZ = perspectiveCamera.lookAt[2]
+
+    await Promise.all([
+      new Promise((resolve) =>
+        new Tween({
+          durationMS: 500,
+          easeName: 'quad_InOut',
+          onUpdate: (v) => {
+            const posX = camOldX + (projectX - camOldX) * v
+            const posY = camOldY + (projectY - camOldY) * v
+            const posZ = camOldZ + (newZ - camOldZ) * v
+
+            perspectiveCamera.position = [posX, posY, posZ]
+          },
+          onComplete: () => resolve(null),
+        }).start(),
+      ),
+      new Promise((resolve) =>
+        new Tween({
+          durationMS: 475,
+          easeName: 'quad_InOut',
+          onUpdate: (v) => {
+            const lookAtX = camOldLookAtX + (projectX - camOldLookAtX) * v
+            const lookAtY = camOldLookAtY + (projectY - camOldLookAtY) * v
+            const lookAtZ = camOldLookAtZ + (projectZ - camOldLookAtZ) * v
+
+            perspectiveCamera.lookAt = [lookAtX, lookAtY, lookAtZ]
+          },
+          onComplete: () => resolve(null),
+        }).start(),
+      ),
+      new Promise((resolve) =>
+        prevView?.project
+          ? new Tween({
+              durationMS: 400,
+              easeName: 'linear',
+              onUpdate: (v) => {
+                prevView.fadeFactor = mapNumberRange(v, 0, 1, 1, 0.2)
+                hitView.fadeFactor = v
+              },
+              onComplete: () => resolve(null),
+            }).start()
+          : new Tween({
+              durationMS: 400,
+              easeName: 'linear',
+              onUpdate: (v) => {
+                boxesRootNode.traverse((child) => {
+                  if (!(child instanceof View)) {
+                    return
+                  }
+                  if (child === hitView) {
+                    // child.fadeFactor = v
+                    return
+                  }
+                  child.fadeFactor = mapNumberRange(v, 0, 1, 1, 0.2)
+                })
+              },
+              onComplete: () => resolve(null),
+            }).start(),
+      ),
+    ])
+
+    perspectiveCamera.position = [projectX, projectY, newZ]
+    perspectiveCamera.lookAt = [projectX, projectY, projectZ]
+    perspectiveCamera.updateViewMatrix().updateProjectionViewMatrix()
+    console.log('swap')
+    prevView = hitView
+
+    store.dispatch(setIsCurrentlyTransitionViews(false))
+
+    return
+  }
+
+  if (prevView?.project) {
+    new Tween({
+      durationMS: 500,
+      easeName: 'exp_In',
+      onUpdate: (v) => {
+        boxesRootNode.traverse((child) => {
+          if (!(child instanceof View)) {
+            return
+          }
+          if (child === hitView) {
+            child.fadeFactor = v
+            return
+          }
+          child.fadeFactor = mapNumberRange(v, 0, 1, 0.2, 1)
+        })
+      },
+    }).start()
   }
 
   const prevLevel = prevView?.levelIndex || 0
@@ -529,6 +740,7 @@ async function onMouseClick(e: MouseEvent) {
             durationMS: TRANSITION_ROW_DURATION,
             easeName: TRANSITION_ROW_EASE,
             onUpdate: (v) => {
+              console.log(prevView.children)
               for (let i = 0; i < prevView.children.length; i++) {
                 const view = prevView.children[i] as View
                 view.visibilityTweenFactor = 1 - v
@@ -537,6 +749,8 @@ async function onMouseClick(e: MouseEvent) {
             onComplete: () => resolve(null),
           }).start(),
         )
+
+        console.log('hit here')
 
         for (let i = 0; i < prevView.children.length; i++) {
           const view = prevView.children[i] as View
@@ -552,23 +766,24 @@ async function onMouseClick(e: MouseEvent) {
     }
   }
 
-  if (!hitView.children.length) {
-    boxesRootNode.traverse((child) => {
-      if (!(child instanceof View)) {
-        return
-      }
-      if (child === hitView) {
-        return
-      }
-      child.fadeFactor = 0.2
-    })
-    showChildRow = false
-    animateCamera = false
-  }
+  // if (!hitView.children.length) {
+  //   boxesRootNode.traverse((child) => {
+  //     if (!(child instanceof View)) {
+  //       return
+  //     }
+  //     if (child === hitView) {
+  //       return
+  //     }
+  //     child.fadeFactor = 0.2
+  //   })
+  //   showChildRow = false
+  //   animateCamera = false
+  // }
 
   if (animateCamera) {
-    console.log('run')
+    const oldCamX = perspectiveCamera.position[0]
     const oldCamY = perspectiveCamera.position[1]
+    const oldCamLookAtX = perspectiveCamera.lookAt[0]
     const oldCamLookAtY = perspectiveCamera.lookAt[1]
     const oldCamZ = perspectiveCamera.position[2]
     const rowHeight = getChildrenRowTotalHeight(
@@ -581,15 +796,20 @@ async function onMouseClick(e: MouseEvent) {
 
     const offsetPos = 8 + (hitView.levelIndex + offset) * CAMERA_LEVEL_Z_OFFSET
 
+    const cameraTargetX = 0
+    const cameraTargetY = rowCenter
+
     new Tween({
       durationMS: TRANSITION_CAMERA_DURATION,
       easeName: TRANSITION_CAMERA_EASE,
       onUpdate: (v) => {
-        perspectiveCamera.position[1] = oldCamY + (rowCenter - oldCamY) * v
+        perspectiveCamera.position[0] = oldCamX + (cameraTargetX - oldCamX) * v
+        perspectiveCamera.position[1] = oldCamY + (cameraTargetY - oldCamY) * v
+        perspectiveCamera.position[2] = oldCamZ + (offsetPos - oldCamZ) * v
+
+        perspectiveCamera.lookAt[0] = oldCamLookAtX - oldCamLookAtX * v
         perspectiveCamera.lookAt[1] =
           oldCamLookAtY + (rowCenter - oldCamLookAtY) * v
-
-        perspectiveCamera.position[2] = oldCamZ + (offsetPos - oldCamZ) * v
       },
       onComplete: () => {},
     }).start()
@@ -617,10 +837,10 @@ async function onMouseClick(e: MouseEvent) {
     })
 
     store.dispatch(setShowCubeHighlight(true))
-    store.dispatch(setIsCurrentlyTransitionViews(false))
+
     hitView.open = true
   }
-
+  store.dispatch(setIsCurrentlyTransitionViews(false))
   // console.log('currLevel', currLevel, 'prevLevel', prevLevel)
   if (hitView) {
     // console.log(
@@ -714,7 +934,7 @@ function updateFrame(ts: DOMHighResTimeStamp) {
 
   gl.bindBuffer(gl.UNIFORM_BUFFER, null)
 
-  gl.bindFramebuffer(gl.FRAMEBUFFER, fboCopy.framebuffer)
+  // gl.bindFramebuffer(gl.FRAMEBUFFER, fboCopy.framebuffer)
   gl.clearColor(0.1, 0.1, 0.1, 1.0)
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 
@@ -735,41 +955,41 @@ function updateFrame(ts: DOMHighResTimeStamp) {
 
   debugLines.forEach((rayLine) => rayLine.render())
 
-  let writeBuffer = fboBlurPing
-  let readBuffer = fboBlurPong
-  const blurIterations = OPTIONS.blurIterations
+  // let writeBuffer = fboBlurPing
+  // let readBuffer = fboBlurPong
+  // const blurIterations = OPTIONS.blurIterations
 
-  for (let i = 0; i < blurIterations; i++) {
-    gl.bindFramebuffer(gl.FRAMEBUFFER, writeBuffer.framebuffer)
-    gl.clearColor(0.1, 0.1, 0.1, 1.0)
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
+  // for (let i = 0; i < blurIterations; i++) {
+  //   gl.bindFramebuffer(gl.FRAMEBUFFER, writeBuffer.framebuffer)
+  //   gl.clearColor(0.1, 0.1, 0.1, 1.0)
+  //   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 
-    const radius = blurIterations - i - 1
-    blurDirection[0] = i % 2 === 0 ? radius : 0
-    blurDirection[1] = i % 2 === 0 ? 0 : radius
+  //   const radius = blurIterations - i - 1
+  //   blurDirection[0] = i % 2 === 0 ? radius : 0
+  //   blurDirection[1] = i % 2 === 0 ? 0 : radius
 
-    gl.activeTexture(gl.TEXTURE0)
-    gl.bindTexture(
-      gl.TEXTURE_2D,
-      i === 0 ? fboCopy.texture : readBuffer.texture,
-    )
-    blurQuad.updateUniform('u_blurDirection', blurDirection)
-    blurQuad.render(1)
+  //   gl.activeTexture(gl.TEXTURE0)
+  //   gl.bindTexture(
+  //     gl.TEXTURE_2D,
+  //     i === 0 ? fboCopy.texture : readBuffer.texture,
+  //   )
+  //   blurQuad.updateUniform('u_blurDirection', blurDirection)
+  //   blurQuad.render(1)
 
-    const t = writeBuffer
-    writeBuffer = readBuffer
-    readBuffer = t
-  }
+  //   const t = writeBuffer
+  //   writeBuffer = readBuffer
+  //   readBuffer = t
+  // }
 
-  gl.bindFramebuffer(gl.FRAMEBUFFER, null)
-  gl.activeTexture(gl.TEXTURE0)
-  gl.bindTexture(gl.TEXTURE_2D, fboCopy.texture)
-  gl.activeTexture(gl.TEXTURE1)
-  gl.bindTexture(gl.TEXTURE_2D, writeBuffer.texture)
-  gl.activeTexture(gl.TEXTURE2)
-  gl.bindTexture(gl.TEXTURE_2D, fboCopy.depthTexture!)
+  // gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+  // gl.activeTexture(gl.TEXTURE0)
+  // gl.bindTexture(gl.TEXTURE_2D, fboCopy.texture)
+  // gl.activeTexture(gl.TEXTURE1)
+  // gl.bindTexture(gl.TEXTURE_2D, writeBuffer.texture)
+  // gl.activeTexture(gl.TEXTURE2)
+  // gl.bindTexture(gl.TEXTURE_2D, fboCopy.depthTexture!)
 
-  dofQuad.render(1)
+  // dofQuad.render(1)
 }
 
 function getHoveredSceneNode(rayStart: vec3, rayDirection: vec3): View {

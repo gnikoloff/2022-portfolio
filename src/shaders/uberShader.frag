@@ -100,7 +100,7 @@ void main () {
             finalColor = vec4(0.0, 1.0, 0.0, 1.0);
           }
         } else {
-          finalColor = vec4(uv, 0.0, 1.0);
+          finalColor = vec4(vec3(0.3), 1.0);
         }
       #else
         #ifdef USE_GAUSSIAN_BLUR
