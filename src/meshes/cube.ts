@@ -21,14 +21,12 @@ export default class Cube extends Drawable {
     return { min, max }
   }
 
-  set deformationAngle(deformAngle: number) {
-    this.updateUniform('u_deformAngle', deformAngle)
+  set deformationAngle(v: number) {
+    this.updateUniform('u_deformAngle', v)
   }
 
   set fadeFactor(v: number) {
-    const gl = this.gl
-    gl.useProgram(this.program)
-    gl.uniform1f(this.uniformLocations.uFadeMixFactor, v)
+    this.updateUniform('u_fadeMixFactor', v)
   }
 
   constructor(
@@ -172,7 +170,6 @@ export default class Cube extends Drawable {
       'u_textureSize',
       new Float32Array([poster.width, poster.height]),
     )
-    // debugger
 
     this.posterLoaded = true
   }

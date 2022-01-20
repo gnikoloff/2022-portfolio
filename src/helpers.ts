@@ -1,5 +1,7 @@
 import { vec3 } from 'gl-matrix'
 import {
+  CUBE_HEIGHT,
+  CUBE_WIDTH,
   LAYOUT_COLUMN_MAX_WIDTH,
   LAYOUT_ITEMS_PER_ROW,
   LAYOUT_LEVEL_Y_OFFSET,
@@ -74,13 +76,12 @@ export const getXYZForViewIdxWithinLevel = (
   levelIdx: number = 0,
   optionalOffset?: vec3,
 ): vec3 => {
-  const itemsPerRow = LAYOUT_ITEMS_PER_ROW
-  const rowWidth = LAYOUT_COLUMN_MAX_WIDTH
-  const normX = viewIdx % itemsPerRow
-  const normY = ((viewIdx - normX) / itemsPerRow) * -1
-  const stepX = rowWidth / itemsPerRow
-  const x = normX * stepX + stepX / 2 - rowWidth / 2
-  const y = normY * stepX - LAYOUT_LEVEL_Y_OFFSET * levelIdx
+  const normX = viewIdx % LAYOUT_ITEMS_PER_ROW
+  const normY = ((viewIdx - normX) / LAYOUT_ITEMS_PER_ROW) * -1
+  const stepX = LAYOUT_COLUMN_MAX_WIDTH / LAYOUT_ITEMS_PER_ROW
+  const padding = (stepX / CUBE_WIDTH) * 1.4
+  const x = normX * stepX + stepX / 2 - LAYOUT_COLUMN_MAX_WIDTH / 2
+  const y = normY * CUBE_HEIGHT * padding - LAYOUT_LEVEL_Y_OFFSET * levelIdx
   const z = levelIdx * LAYOUT_LEVEL_Z_OFFSET
   const pos = vec3.fromValues(x, y, z)
   if (optionalOffset) {
@@ -89,14 +90,12 @@ export const getXYZForViewIdxWithinLevel = (
   return pos
 }
 
-export const getChildrenRowTotalHeight = (view: View) => {
-  const rowHeight =
-    -Math.ceil(view.children.length / LAYOUT_ITEMS_PER_ROW) * 1.5 -
-    view.levelIndex * LAYOUT_LEVEL_Y_OFFSET
-  console.log({
-    levelIndex: view.levelIndex,
-    height: Math.ceil(view.children.length / LAYOUT_ITEMS_PER_ROW),
-  })
+export const getChildrenRowTotalHeight = (childrenCount: number) => {
+  const rowsCount = Math.ceil(childrenCount / LAYOUT_ITEMS_PER_ROW)
+  const stepX = LAYOUT_COLUMN_MAX_WIDTH / LAYOUT_ITEMS_PER_ROW
+  const padding = ((stepX / CUBE_WIDTH) * 1.4) / rowsCount
+  const rowHeight = rowsCount * CUBE_HEIGHT * (rowsCount > 1 ? padding : 1)
+  console.log({ rowsCount, rowHeight })
   return rowHeight
 }
 

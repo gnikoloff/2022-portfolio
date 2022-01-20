@@ -48,14 +48,18 @@ import {
   CAMERA_FAR,
   CAMERA_LEVEL_Z_OFFSET,
   CAMERA_NEAR,
-  CUBE_DEFORM_ANGLE,
   CUBE_DEPTH,
   CUBE_HEIGHT,
-  CUBE_ROTATION_X_AXIS,
   CUBE_WIDTH,
   LABEL_HEIGHT,
   LABEL_WIDTH,
   LAYOUT_COLUMN_MAX_WIDTH,
+  LAYOUT_LEVEL_Y_OFFSET,
+  TRANSITION_CAMERA_DURATION,
+  TRANSITION_CAMERA_EASE,
+  TRANSITION_ROW_DELAY,
+  TRANSITION_ROW_DURATION,
+  TRANSITION_ROW_EASE,
 } from './constants'
 
 import * as dat from 'dat.gui'
@@ -158,8 +162,11 @@ const perspectiveCamera = new PerspectiveCamera(
   CAMERA_NEAR,
   CAMERA_FAR,
 )
-perspectiveCamera.position = [0, 0, 8]
-perspectiveCamera.lookAt = [0, 0, 0]
+{
+  const camCenterY = -getChildrenRowTotalHeight(4) / 2
+  perspectiveCamera.position = [0, camCenterY, 8]
+  perspectiveCamera.lookAt = [0, camCenterY, 0]
+}
 
 const orbitController = new CameraController(freeOrbitCamera)
 orbitController.pause()
@@ -301,19 +308,19 @@ fetch('http://192.168.2.123:3001/api')
 
     projectsNode.setPosition(getXYZForViewIdxWithinLevel(1, 0))
     projectsNode.loadThumbnail()
-    projectsNode.reveal()
+    projectsNode.visibilityTweenFactor = 1
     projectsNode.visible = true
     projectsNode.setParent(boxesRootNode)
 
     const aboutNode = new View(gl, { ...viewGeoPartialProps, name: 'about' })
     aboutNode.loadThumbnail()
-    aboutNode.reveal()
+    aboutNode.visibilityTweenFactor = 1
     aboutNode.visible = true
     aboutNode.setParent(boxesRootNode)
 
     const aaaaaaNode = new View(gl, { ...viewGeoPartialProps, name: 'aa' })
     aaaaaaNode.loadThumbnail()
-    aaaaaaNode.reveal()
+    aaaaaaNode.visibilityTweenFactor = 1
     aaaaaaNode.visible = false
     aaaaaaNode.setParent(aboutNode)
 
@@ -322,7 +329,7 @@ fetch('http://192.168.2.123:3001/api')
       name: 'contact',
     })
     contactNode.loadThumbnail()
-    contactNode.reveal()
+    contactNode.visibilityTweenFactor = 1
     contactNode.visible = true
     contactNode.setParent(boxesRootNode)
 
@@ -331,12 +338,13 @@ fetch('http://192.168.2.123:3001/api')
       name: 'blog',
     })
     blogNode.loadThumbnail()
-    blogNode.reveal()
+    blogNode.visibilityTweenFactor = 1
     blogNode.visible = true
     blogNode.setParent(boxesRootNode)
 
     for (const [key, projects] of Object.entries(projectsByYear)) {
       const yearNode = new View(gl, { ...viewGeoPartialProps, name: key })
+      yearNode.visibilityTweenFactor = 0
       yearNode.setParent(projectsNode)
       for (let i = 0; i < projects.length; i++) {
         const project = projects[i]
@@ -346,6 +354,7 @@ fetch('http://192.168.2.123:3001/api')
           project,
           hasLabel: true,
         })
+        projectNode.visibilityTweenFactor = 0
         projectNode.setParent(yearNode)
       }
     }
@@ -431,10 +440,9 @@ async function onMouseClick(e: MouseEvent) {
     ui: { isCurrentlyTransitionViews },
   } = store.getState()
 
-  // console.log(isCurrentlyTransitionViews)
-  // if (isCurrentlyTransitionViews) {
-  //   return
-  // }
+  if (isCurrentlyTransitionViews) {
+    return
+  }
 
   const hitView = getHoveredSceneNode(rayStart, rayDirection)
 
@@ -448,8 +456,8 @@ async function onMouseClick(e: MouseEvent) {
   store.dispatch(setShowCubeHighlight(false))
 
   let showChildRow = true
+  let childRowHasDelay = true
   let animateCamera = true
-  let animateCameraDirection: 0 | 1 = 0 // 0 - forward, 1 - backwards
   if (prevView) {
     // debugger
     if (currLevel < prevLevel) {
@@ -468,14 +476,12 @@ async function onMouseClick(e: MouseEvent) {
             viewsToClose.push(view)
           }
           new Tween({
-            durationMS: 1000,
-            easeName: 'linear',
+            durationMS: TRANSITION_ROW_DURATION,
+            easeName: TRANSITION_ROW_EASE,
             onUpdate: (v) => {
               for (let i = 0; i < viewsToClose.length; i++) {
                 const view = viewsToClose[i] as View
-                const sc = 1 - v
-                view.hide(sc, sc, sc)
-                view.updateWorldMatrix()
+                view.visibilityTweenFactor = 1 - v
               }
             },
             onComplete: () => resolve(null),
@@ -491,7 +497,6 @@ async function onMouseClick(e: MouseEvent) {
       hitView.open = false
 
       showChildRow = !prevView.findParentByName(hitView.name as string)
-      animateCameraDirection = 1
     } else if (currLevel === prevLevel) {
       if (hitView.name === prevView.name) {
         for (let i = 0; i < hitView.children.length; i++) {
@@ -501,19 +506,12 @@ async function onMouseClick(e: MouseEvent) {
         const hitViewOpen = hitView.open
         await new Promise((resolve) => {
           new Tween({
-            durationMS: 1000,
-            easeName: 'quart_InOut',
+            durationMS: TRANSITION_ROW_DURATION,
+            easeName: TRANSITION_ROW_EASE,
             onUpdate: (v) => {
               for (let i = 0; i < hitView.children.length; i++) {
                 const view = hitView.children[i] as View
-                if (hitViewOpen) {
-                  const sc = 1 - v
-                  view.hide(sc, sc, sc)
-                } else {
-                  const sc = v
-                  view.reveal(sc, sc, sc)
-                }
-                view.updateWorldMatrix()
+                view.visibilityTweenFactor = hitViewOpen ? 1 - v : v
               }
             },
             onComplete: () => resolve(null),
@@ -525,18 +523,15 @@ async function onMouseClick(e: MouseEvent) {
         }
         hitView.open = !hitViewOpen
         showChildRow = false
-        animateCameraDirection = hitView.open ? 0 : 1
       } else {
         await new Promise((resolve) =>
           new Tween({
-            durationMS: 1000,
-            easeName: 'quart_In',
+            durationMS: TRANSITION_ROW_DURATION,
+            easeName: TRANSITION_ROW_EASE,
             onUpdate: (v) => {
               for (let i = 0; i < prevView.children.length; i++) {
                 const view = prevView.children[i] as View
-                const sc = 1 - v
-                view.hide(sc, sc, sc)
-                view.updateWorldMatrix()
+                view.visibilityTweenFactor = 1 - v
               }
             },
             onComplete: () => resolve(null),
@@ -549,6 +544,7 @@ async function onMouseClick(e: MouseEvent) {
         }
 
         hitView.open = !hitView.open
+        childRowHasDelay = false
         if (hitView.children.length && prevView.open) {
           animateCamera = false
         }
@@ -571,25 +567,29 @@ async function onMouseClick(e: MouseEvent) {
   }
 
   if (animateCamera) {
+    console.log('run')
     const oldCamY = perspectiveCamera.position[1]
     const oldCamLookAtY = perspectiveCamera.lookAt[1]
     const oldCamZ = perspectiveCamera.position[2]
-    const rowHeight = getChildrenRowTotalHeight(hitView)
+    const rowHeight = getChildrenRowTotalHeight(
+      (showChildRow || hitView.open ? hitView.children : hitView.siblings)
+        .length,
+    )
+    const offset = showChildRow || hitView.open ? -1 : -2
+    const rowCenter =
+      -rowHeight / 2 - LAYOUT_LEVEL_Y_OFFSET * (hitView.levelIndex + offset)
+
+    const offsetPos = 8 + (hitView.levelIndex + offset) * CAMERA_LEVEL_Z_OFFSET
 
     new Tween({
-      durationMS: 1_000,
-      easeName: 'exp_In',
+      durationMS: TRANSITION_CAMERA_DURATION,
+      easeName: TRANSITION_CAMERA_EASE,
       onUpdate: (v) => {
-        perspectiveCamera.position[1] = oldCamY + (rowHeight / 2 - oldCamY) * v
+        perspectiveCamera.position[1] = oldCamY + (rowCenter - oldCamY) * v
         perspectiveCamera.lookAt[1] =
-          oldCamLookAtY + (rowHeight / 2 - oldCamLookAtY) * v
+          oldCamLookAtY + (rowCenter - oldCamLookAtY) * v
 
-        const offsetPos =
-          animateCameraDirection === 0
-            ? v * CAMERA_LEVEL_Z_OFFSET
-            : -v * CAMERA_LEVEL_Z_OFFSET
-
-        perspectiveCamera.position[2] = oldCamZ + offsetPos
+        perspectiveCamera.position[2] = oldCamZ + (offsetPos - oldCamZ) * v
       },
       onComplete: () => {},
     }).start()
@@ -603,16 +603,13 @@ async function onMouseClick(e: MouseEvent) {
     }
     await new Promise((resolve) => {
       new Tween({
-        durationMS: 1_000,
-        delayMS: 500,
-        easeName: 'cubic_Out',
+        durationMS: TRANSITION_ROW_DURATION,
+        delayMS: childRowHasDelay ? TRANSITION_ROW_DELAY : 0,
+        easeName: TRANSITION_ROW_EASE,
         onUpdate: (v) => {
           for (let i = 0; i < hitView.children.length; i++) {
             const view = hitView.children[i] as View
-            const rot = CUBE_ROTATION_X_AXIS * (1 - v)
-            const deformAngle = CUBE_DEFORM_ANGLE * (1 - v)
-            view.reveal(v, v, v, rot, 0, 0, deformAngle)
-            view.updateWorldMatrix()
+            view.visibilityTweenFactor = v
           }
         },
         onComplete: () => resolve(null),

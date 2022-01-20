@@ -24,6 +24,8 @@ export default class View extends SceneNode {
 
   project?: Project
 
+  static ROTATION_X_AXIS = Math.PI
+  static DEFORM_ANGLE = Math.PI * 0.5
   static MESH_WRAPPER_NAME = 'mesh-wrapper'
 
   get sampleProgram(): WebGLProgram {
@@ -48,6 +50,19 @@ export default class View extends SceneNode {
     if (this.projectLabelNode) {
       this.projectLabelNode.fadeFactor = v
     }
+  }
+
+  set visibilityTweenFactor(v: number) {
+    const rotation = View.ROTATION_X_AXIS - View.ROTATION_X_AXIS * v
+    const deformAngle = View.DEFORM_ANGLE * v
+    const scale = v
+    const currRotationY = this.projectThumbNode.rotation[1]
+    const currRotationZ = this.projectThumbNode.rotation[2]
+    this.projectThumbNode
+      .setScale([scale, scale, scale])
+      .setRotation([rotation, currRotationY, currRotationZ])
+    this.projectThumbNode.deformationAngle = View.DEFORM_ANGLE - deformAngle
+    this.updateWorldMatrix()
   }
 
   testRayIntersection(rayStart: vec3, rayDirection: vec3): number | null {
