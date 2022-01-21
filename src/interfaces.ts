@@ -60,6 +60,7 @@ export interface ViewProps {
   name: string
   project?: Project
   hasLabel?: boolean
+  externalURL?: string
 }
 
 export interface SingleViewProps {

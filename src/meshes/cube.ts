@@ -36,7 +36,7 @@ export default class Cube extends Drawable {
     const defines = {
       USE_SHADING: true,
       USE_SOLID_COLOR: !!solidColor,
-      USE_DEFORM: true,
+      USE_SPIRAL_DEFORM: true,
       USE_TEXTURE: true,
       USE_UV_TRANSFORM: true,
       USE_BACKGROUND_SIZE_COVER: true,

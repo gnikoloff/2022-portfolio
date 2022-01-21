@@ -8,7 +8,9 @@ import {
   LAYOUT_LEVEL_Z_OFFSET,
 } from './constants'
 import { Project, ProjectGroup } from './interfaces'
-import View from './views/view'
+import { Tween, TweenProps } from './lib/hwoa-rang-anim/dist'
+import { SceneNode } from './lib/hwoa-rang-gl2/dist'
+import View from './view'
 
 /**
  *
@@ -108,5 +110,33 @@ export const promisifiedLoadImage = (
     image.onerror = (err) => reject(err)
     image.crossOrigin = 'anonymous'
     image.src = src
+  })
+}
+
+export const promisifiedTween = ({
+  durationMS,
+  delayMS,
+  easeName,
+  onUpdate,
+}: TweenProps): Promise<null> =>
+  new Promise((resolve) =>
+    new Tween({
+      durationMS,
+      delayMS,
+      easeName,
+      onUpdate,
+      onComplete: () => resolve(null),
+    }).start(),
+  )
+
+export const traverseViewNodes = (
+  node: SceneNode,
+  callback: (node: View) => void,
+) => {
+  node.traverse((child) => {
+    if (!(child instanceof View)) {
+      return
+    }
+    callback(child)
   })
 }

@@ -12,7 +12,7 @@ uniform mat4 u_worldMatrix;
   uniform sampler2D diffuse;
 #endif
 
-#ifdef USE_DEFORM
+#ifdef USE_SPIRAL_DEFORM
   uniform float u_deformAngle;
 #endif
 
@@ -43,7 +43,7 @@ void main () {
   
   vec4 position = aPosition;
 
-  #ifdef USE_DEFORM
+  #ifdef USE_SPIRAL_DEFORM
     float ang = (position.x + 0.5) * sin(u_deformAngle) * u_deformAngle;
     position = doBoxTwist(position, ang);
   #endif
@@ -53,7 +53,7 @@ void main () {
 
   #ifdef USE_SHADING
     vec4 normal = aNormal;
-    #ifdef USE_DEFORM
+    #ifdef USE_SPIRAL_DEFORM
       normal = doBoxTwist(normal, ang);
     #endif
     vNormal = normal;

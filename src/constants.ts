@@ -1,5 +1,7 @@
 import { easeType } from './lib/hwoa-rang-anim/dist'
 
+export const API_ENDPOINT = 'http://192.168.2.123:3001/api'
+
 export const LAYOUT_COLUMN_MAX_WIDTH = 14
 export const LAYOUT_ITEMS_PER_ROW = 4
 export const LAYOUT_LEVEL_Y_OFFSET = 5
@@ -20,8 +22,8 @@ export const CAMERA_NEAR = 0.1
 export const CAMERA_FAR = 30
 export const CAMERA_FOCUS_OFFSET_Z = 5
 
-export const TRANSITION_CAMERA_DURATION = 1_000
-export const TRANSITION_CAMERA_EASE: easeType = 'quint_InOut'
-export const TRANSITION_ROW_DURATION = 1000
-export const TRANSITION_ROW_DELAY = 750
-export const TRANSITION_ROW_EASE: easeType = 'quart_Out'
+export const TRANSITION_CAMERA_DURATION = 759
+export const TRANSITION_CAMERA_EASE: easeType = 'exp_Out'
+export const TRANSITION_ROW_DURATION = 750
+export const TRANSITION_ROW_DELAY = 150
+export const TRANSITION_ROW_EASE: easeType = 'exp_Out'

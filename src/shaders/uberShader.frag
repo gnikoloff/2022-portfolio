@@ -29,11 +29,11 @@ precision highp float;
   uniform vec2 u_blurDirection;
 #endif
 
-#ifdef USE_DOF
-  uniform sampler2D u_blurTexture;
-  uniform sampler2D u_depthTexture;
-  uniform vec2 u_depthRange;
-  uniform float u_dof;
+
+#ifdef USE_MASK_TEXTURE
+  uniform sampler2D u_maskTexture;
+  uniform vec4 u_uvOffsetSizesMask;
+  uniform float u_revealMixFactor;
 #endif
 
 in vec4 vNormal;
@@ -54,9 +54,9 @@ const float FACE_STEP2 = FACE_STEP * 2.0;
 void main () {
   vec2 borderUV = vUv;
   vec2 uv = vUv;
+  vec2 maskUV = vUv;
 
   #ifdef IS_CUBE
-    float faceStep = 1.0 / FACE_COUNT;
     if (vUv.x > FACE_STEP && vUv.x < FACE_STEP2) {
       uv = mapVec2Range(uv, vec2(FACE_STEP), vec2(FACE_STEP2), vec2(0.0), vec2(1.0));
       borderUV = uv;
@@ -73,6 +73,14 @@ void main () {
       u_uvOffsetSizes.zw,
       uv
     );
+    #ifdef USE_MASK_TEXTURE
+      maskUV = uvTransformBackgroundCover(vUv, vec2(128.0), vec2(MESH_WIDTH, MESH_HEIGHT));
+      maskUV = mix(
+        u_uvOffsetSizesMask.xy,
+        u_uvOffsetSizesMask.zw,
+        maskUV
+      );
+    #endif
   #endif
 
   #ifdef USE_SOLID_COLOR
@@ -84,7 +92,7 @@ void main () {
       #ifdef IS_CUBE
         if (vUv.x > FACE_STEP && vUv.x < FACE_STEP2) { 
           float aspect = MESH_WIDTH / MESH_HEIGHT;
-          float borderWidth = 0.0;
+          float borderWidth = 0.015;
           float maxX = 1.0 - borderWidth;
           float minX = borderWidth;
           float maxY = 1.0 - borderWidth;
@@ -97,7 +105,7 @@ void main () {
           ) {
             finalColor = texture(u_diffuse, uv, -0.5);  
           } else {
-            finalColor = vec4(0.0, 1.0, 0.0, 1.0);
+            finalColor = vec4(vec3(0.3), 1.0);
           }
         } else {
           finalColor = vec4(vec3(0.3), 1.0);
@@ -106,22 +114,10 @@ void main () {
         #ifdef USE_GAUSSIAN_BLUR
           finalColor = blur9(u_diffuse, uv, u_resolution, u_blurDirection);
         #else
-          #ifdef USE_DOF
-            vec4 mainColor = texture(u_diffuse, uv);
-            vec4 blurColor = texture(u_blurTexture, uv);
-            float depth = linearizeDepth(texture(u_depthTexture, uv).r, CAMERA_NEAR, CAMERA_FAR) / CAMERA_FAR;
-            // float depth = texture(u_depthTexture, uv).r;
-            float mix_ = max(0.0, (depth < u_dof ? abs(u_dof - depth) : abs(depth - u_dof) - u_depthRange.x));
-            float mixAmount = 0.0;
-            float blurRange = u_depthRange.y - u_depthRange.x;
-            if (mix_ > blurRange) {
-              mixAmount = 1.0;
-            } else {
-              mixAmount = mix_ / blurRange;
-            }
-            // finalColor = vec4(vec3(linearizeDepth(depth, CAMERA_NEAR, CAMERA_FAR) / CAMERA_FAR), 1.0);
-            finalColor = mix(mainColor, blurColor, mixAmount);
-            // finalColor = vec4(vec3(mixAmount), 1.0);
+          #ifdef USE_MASK_TEXTURE
+            vec4 maskColor = texture(u_maskTexture, maskUV);
+            vec4 texColor = texture(u_diffuse, uv);
+            finalColor = vec4(mix(vec3(0.1), texColor.rgb, 1.0 - step(u_revealMixFactor, maskColor.r)), 1.0);
           #else
             finalColor = texture(u_diffuse, uv, -0.5);
           #endif

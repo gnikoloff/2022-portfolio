@@ -1,3 +1,4 @@
+// https://gist.github.com/statico/df64c5d167362ecf7b34fca0b1459a44
 vec2 uvTransformBackgroundCover (vec2 uv, vec2 imageSize, vec2 displaySize) {
   float rs = displaySize.x / displaySize.y;
   float ri = imageSize.x / imageSize.y;

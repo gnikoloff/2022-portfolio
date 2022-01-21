@@ -3,29 +3,35 @@ import {
   intersectRayWithAABB,
   intersectRayWithQuad,
   SceneNode,
-} from '../lib/hwoa-rang-gl2/dist'
-import Cube from '../meshes/cube'
-import { Project, ViewProps } from '../interfaces'
-import Label from '../meshes/label'
-import { promisifiedLoadImage } from '../helpers'
+} from './lib/hwoa-rang-gl2/dist'
+import Cube from './meshes/cube'
+import { Project, ViewProps } from './interfaces'
+import Label from './meshes/label'
+import { promisifiedLoadImage } from './helpers'
 import {
   CUBE_DEPTH,
   CUBE_HEIGHT,
   LABEL_MARGIN_Y,
   LABEL_MARGIN_Z,
-} from '../constants'
+} from './constants'
 
 export default class View extends SceneNode {
   visible = false
-  open = true
+  open = false
 
   projectThumbNode: Cube
   projectLabelNode?: Label
 
   project?: Project
+  externalURL?: string
 
-  static ROTATION_X_AXIS = Math.PI
-  static DEFORM_ANGLE = Math.PI * 0.3
+  tweenAnimMode: 0 | 1 = 0 // 0 - reveal, 1 - hide animation mode
+
+  static ROTATION_X_AXIS_ON_OPEN = Math.PI
+  static ROTATION_X_AXIS_ON_CLOSE = Math.PI * 0.1
+  static DEFORM_ANGLE_ON_OPEN = Math.PI * 0.5
+  static DEFORM_ANGLE_ON_CLOSE = Math.PI * -0.4
+  static FADED_OUT_FACTOR = 0.1
   static MESH_WRAPPER_NAME = 'mesh-wrapper'
 
   get sampleProgram(): WebGLProgram {
@@ -48,20 +54,32 @@ export default class View extends SceneNode {
   set fadeFactor(v: number) {
     this.projectThumbNode.fadeFactor = v
     if (this.projectLabelNode) {
-      this.projectLabelNode.fadeFactor = v
+      this.projectLabelNode.revealMixFactor = v
     }
   }
 
   set visibilityTweenFactor(v: number) {
-    const rotation = View.ROTATION_X_AXIS - View.ROTATION_X_AXIS * v
-    const deformAngle = View.DEFORM_ANGLE * v
+    const startRotationAngle =
+      this.tweenAnimMode === 0
+        ? View.ROTATION_X_AXIS_ON_OPEN
+        : View.ROTATION_X_AXIS_ON_CLOSE
+    const startDeformAngle =
+      this.tweenAnimMode === 0
+        ? View.DEFORM_ANGLE_ON_OPEN
+        : View.DEFORM_ANGLE_ON_CLOSE
+    const rotation = startRotationAngle - startRotationAngle * v
+    const deformAngle = startRotationAngle - startDeformAngle * v
     const scale = v
     const currRotationY = this.projectThumbNode.rotation[1]
     const currRotationZ = this.projectThumbNode.rotation[2]
     this.projectThumbNode
       .setScale([scale, scale, scale])
       .setRotation([rotation, currRotationY, currRotationZ])
-    this.projectThumbNode.deformationAngle = View.DEFORM_ANGLE - deformAngle
+    this.projectThumbNode.deformationAngle =
+      View.DEFORM_ANGLE_ON_OPEN - deformAngle
+    if (this.projectLabelNode) {
+      this.projectLabelNode.revealMixFactor = v
+    }
     this.updateWorldMatrix()
   }
 
@@ -97,10 +115,18 @@ export default class View extends SceneNode {
 
   constructor(
     gl: WebGL2RenderingContext,
-    { cubeGeometry, labelGeometry, name, project, hasLabel = false }: ViewProps,
+    {
+      cubeGeometry,
+      labelGeometry,
+      name,
+      project,
+      hasLabel = false,
+      externalURL,
+    }: ViewProps,
   ) {
     super(name)
     this.project = project
+    this.externalURL = externalURL
 
     const meshWrapperNode = new SceneNode(View.MESH_WRAPPER_NAME)
     meshWrapperNode.setParent(this)

@@ -1,15 +1,17 @@
+import { vec3 } from 'gl-matrix'
+import * as dat from 'dat.gui'
 import { Project } from './interfaces'
 import store from './store'
-
-import Line from './meshes/line'
 
 import './style.css'
 
 import {
   getChildrenRowTotalHeight,
   getXYZForViewIdxWithinLevel,
+  promisifiedTween,
   sortProjectEntriesByYear,
   transformProjectEntries,
+  traverseViewNodes,
 } from './helpers'
 
 import {
@@ -19,34 +21,30 @@ import {
   setMousePos,
   setShowCubeHighlight,
 } from './store/ui'
-import View from './views/view'
 
 import {
   CameraController,
   createPlane,
   createBox,
-  createRoundedBox,
   OrthographicCamera,
   PerspectiveCamera,
   SceneNode,
   deg2Rad,
-  intersectRayWithAABB,
   projectMouseToWorldSpace,
   createAndBindUBOToBase,
   createUniformBlockInfo,
   UBOInfo,
-  intersectRayWithQuad,
-  createFramebuffer,
   TextureAtlas,
   mapNumberRange,
 } from './lib/hwoa-rang-gl2/dist'
-
-import { Tween } from './lib/hwoa-rang-anim/dist'
+import { easeType, Tween } from './lib/hwoa-rang-anim/dist'
 
 import Cube from './meshes/cube'
+import View from './view'
+import Line from './meshes/line'
 
-import { mat4, vec3 } from 'gl-matrix'
 import {
+  API_ENDPOINT,
   CAMERA_FAR,
   CAMERA_FOCUS_OFFSET_Z,
   CAMERA_LEVEL_Z_OFFSET,
@@ -56,7 +54,6 @@ import {
   CUBE_WIDTH,
   LABEL_HEIGHT,
   LABEL_WIDTH,
-  LAYOUT_COLUMN_MAX_WIDTH,
   LAYOUT_LEVEL_Y_OFFSET,
   TRANSITION_CAMERA_DURATION,
   TRANSITION_CAMERA_EASE,
@@ -65,9 +62,6 @@ import {
   TRANSITION_ROW_EASE,
 } from './constants'
 
-import * as dat from 'dat.gui'
-import Quad from './meshes/quad'
-
 const OPTIONS = {
   cameraFreeMode: false,
   blurIterations: 25,
@@ -75,8 +69,6 @@ const OPTIONS = {
   dofOuterRange: 0.47,
   dof: -0.02269,
 }
-
-let oldTime = 0
 
 const gui = new dat.GUI()
 
@@ -87,69 +79,27 @@ gui.add(OPTIONS, 'cameraFreeMode').onChange((v) => {
     orbitController.pause()
   }
 })
-const optionsStep = 0.00001
-gui.add(OPTIONS, 'blurIterations').min(1).max(25).step(1)
-// gui
-//   .add(OPTIONS, 'dofInnerRange')
-//   .min(0.1)
-//   .max(2)
-//   .step(optionsStep)
-//   .onChange((v: number) => {
-//     // console.log([v, OPTIONS.dofOuterRange])
-//     dofQuad.updateUniform(
-//       'u_depthRange',
-//       new Float32Array([v, OPTIONS.dofOuterRange]),
-//     )
-//   })
-// gui
-//   .add(OPTIONS, 'dofOuterRange')
-//   .min(0.1)
-//   .max(2)
-//   .step(optionsStep)
-//   .onChange((v: number) => {
-//     // console.log([OPTIONS.dofInnerRange, v])
-//     dofQuad.updateUniform(
-//       'u_depthRange',
-//       new Float32Array([OPTIONS.dofInnerRange, v]),
-//     )
-//   })
-// gui
-//   .add(OPTIONS, 'dof')
-//   .min(-2)
-//   .max(1)
-//   .step(optionsStep)
-//   .onChange((v: number) => {
-//     dofQuad.updateUniform('u_dof', v)
-//   })
 
+let oldTime = 0
 let prevView!: View
 
 const debugLines: Line[] = []
-
 const rootNode = new SceneNode()
 const boxesRootNode = new SceneNode()
 boxesRootNode.setParent(rootNode)
 
 const $app = document.getElementById('app')!
-
 const $canvas: HTMLCanvasElement = document.createElement('canvas')
-$canvas.width = innerWidth * devicePixelRatio
-$canvas.height = innerHeight * devicePixelRatio
-$canvas.style.setProperty('width', `${innerWidth}px`)
-$canvas.style.setProperty('height', `${innerHeight}px`)
+sizeCanvas()
 $app.appendChild($canvas)
 
 const gl: WebGL2RenderingContext = $canvas.getContext('webgl2')!
 
-let uboPerspectiveCamera: WebGLBuffer
-let uboCameraBlockInfo: UBOInfo
-let uboOrthographicCamera: WebGLBuffer
-
-// TextureAtlas.debugMode = true
+// Init texture atlas
+TextureAtlas.debugMode = false
 TextureAtlas.gl = gl
 
-// console.log(texManager)
-
+// Set up cameras
 const freeOrbitCamera = new PerspectiveCamera(
   deg2Rad(70),
   $canvas.width / $canvas.height,
@@ -170,7 +120,6 @@ const perspectiveCamera = new PerspectiveCamera(
   perspectiveCamera.position = [0, camCenterY, 8]
   perspectiveCamera.lookAt = [0, camCenterY, 0]
 }
-
 const orbitController = new CameraController(freeOrbitCamera)
 orbitController.pause()
 
@@ -184,11 +133,9 @@ const orthographicCamera = new OrthographicCamera(
 )
 orthographicCamera.position = [0, 0, 1]
 orthographicCamera.lookAt = [0, 0, 0]
-
 orthographicCamera.updateViewMatrix().updateProjectionViewMatrix()
 
-let singleView
-
+// Set up geometries
 const cubeGeometry = createBox({
   width: CUBE_WIDTH,
   height: CUBE_HEIGHT,
@@ -197,119 +144,51 @@ const cubeGeometry = createBox({
   depthSegments: 30,
   uvOffsetEachFace: true,
 })
+const labelGeometry = createPlane({
+  width: LABEL_WIDTH,
+  height: LABEL_HEIGHT,
+  widthSegments: 30,
+  heightSegments: 20,
+})
 
-const blurDirection = new Float32Array([1, 0])
+// Hover cube
+const hoverCube = new Cube(gl, {
+  geometry: cubeGeometry,
+  solidColor: [0, 0, 1, 1],
+})
+hoverCube.setPosition([-1, 0, 0])
+hoverCube.setScale([1.05, 1.05, 1.05])
+hoverCube.setParent(rootNode)
 
-// const fboCopy = createFramebuffer(gl, innerWidth, innerHeight, true, 'fboCopy')
-// const fboBlurPing = createFramebuffer(
-//   gl,
-//   innerWidth,
-//   innerHeight,
-//   false,
-//   'blurPing',
-// )
-// const fboBlurPong = createFramebuffer(
-//   gl,
-//   innerWidth,
-//   innerHeight,
-//   false,
-//   'blurPong',
-// )
+// Get and set up UBOs that hold perspective & ortho cameras matrices
+const uboCameraBlockInfo = createUniformBlockInfo(
+  gl,
+  hoverCube.program,
+  'Camera',
+  ['projectionViewMatrix'],
+)
+const uboPerspectiveCamera = createAndBindUBOToBase(
+  gl,
+  uboCameraBlockInfo.blockSize,
+  0,
+)!
+const uboOrthographicCamera = createAndBindUBOToBase(
+  gl,
+  uboCameraBlockInfo.blockSize,
+  1,
+)!
 
-// const fullscreenQuadGeo = createPlane({
-//   width: innerWidth,
-//   height: innerHeight,
-//   flipUVy: true,
-// })
-
-// const blurQuad = new Quad(gl, {
-//   geometry: fullscreenQuadGeo,
-//   uniforms: {
-//     u_diffuse: {
-//       type: gl.INT,
-//       value: 0,
-//     },
-//     u_resolution: {
-//       type: gl.FLOAT_VEC2,
-//       value: new Float32Array([innerWidth, innerHeight]),
-//     },
-//     u_blurDirection: {
-//       type: gl.FLOAT_VEC2,
-//       value: blurDirection,
-//     },
-//   },
-//   defines: { USE_TEXTURE: true, USE_GAUSSIAN_BLUR: true },
-//   name: 'blurQuad',
-// })
-// const dofQuad = new Quad(gl, {
-//   geometry: fullscreenQuadGeo,
-//   uniforms: {
-//     u_diffuse: {
-//       type: gl.INT,
-//       value: 0,
-//     },
-//     u_blurTexture: {
-//       type: gl.INT,
-//       value: 1,
-//     },
-//     u_depthTexture: {
-//       type: gl.INT,
-//       value: 2,
-//     },
-//     u_depthRange: {
-//       type: gl.FLOAT_VEC2,
-//       value: new Float32Array([OPTIONS.dofInnerRange, OPTIONS.dofOuterRange]),
-//     },
-//     u_dof: {
-//       type: gl.FLOAT,
-//       value: OPTIONS.dof,
-//     },
-//   },
-//   defines: {
-//     USE_TEXTURE: true,
-//     USE_DOF: true,
-//   },
-// })
-
-fetch('http://192.168.2.123:3001/api')
+fetch(API_ENDPOINT)
   .then((projects) => projects.json())
   .then(transformProjectEntries)
   .then((projects: Project[]) => {
     const viewGeoPartialProps = { cubeGeometry, labelGeometry }
     const projectsByYear = sortProjectEntriesByYear(projects)
 
-    // singleView = new SingleView(gl, {
-    //   imageGeometry,
-    //   descGeometry,
-    //   project: projects[0],
-    //   name: 'ar',
-    // })
-    // singleView.updateWorldMatrix()
-
     const projectsNode = new View(gl, {
       ...viewGeoPartialProps,
       name: 'projects',
     })
-
-    const drawProgramToGetUBOFrom = projectsNode.sampleProgram
-    uboCameraBlockInfo = createUniformBlockInfo(
-      gl,
-      drawProgramToGetUBOFrom,
-      'Camera',
-      ['projectionViewMatrix'],
-    )
-    uboPerspectiveCamera = createAndBindUBOToBase(
-      gl,
-      uboCameraBlockInfo.blockSize,
-      0,
-    )!
-    uboOrthographicCamera = createAndBindUBOToBase(
-      gl,
-      uboCameraBlockInfo.blockSize,
-      1,
-    )!
-
-    projectsNode.setPosition(getXYZForViewIdxWithinLevel(1, 0))
     projectsNode.loadThumbnail()
     projectsNode.visibilityTweenFactor = 1
     projectsNode.visible = true
@@ -330,6 +209,7 @@ fetch('http://192.168.2.123:3001/api')
     const contactNode = new View(gl, {
       ...viewGeoPartialProps,
       name: 'contact',
+      externalURL: 'mailto:connect@georgi-nikolov.com',
     })
     contactNode.loadThumbnail()
     contactNode.visibilityTweenFactor = 1
@@ -338,7 +218,8 @@ fetch('http://192.168.2.123:3001/api')
 
     const blogNode = new View(gl, {
       ...viewGeoPartialProps,
-      name: 'blog',
+      name: 'archive',
+      externalURL: 'https://archive.georgi-nikolov.com/',
     })
     blogNode.loadThumbnail()
     blogNode.visibilityTweenFactor = 1
@@ -378,45 +259,7 @@ fetch('http://192.168.2.123:3001/api')
     }
 
     positionNodeWithinLevel(boxesRootNode, 0, -1)
-
-    // projectsNode.iterateChildren((childNode, i) => {
-    //   const position = getXYZForViewIdxWithinLevel(i, 1)
-    //   childNode.setPosition(position)
-    //   childNode.iterateChildren((projectNode, n) => {
-    //     const position = getXYZForViewIdxWithinLevel(n, 2)
-    //     projectNode.setPosition(position)
-    //   })
-    // })
-
-    // console.log(boxesRootNode)
-
-    // boxesRootNode.updateWorldMatrix()
   })
-
-const imageGeometry = createBox({
-  width: LAYOUT_COLUMN_MAX_WIDTH * (2 / 3) * 0.95,
-  height: LAYOUT_COLUMN_MAX_WIDTH * (2 / 3) * 0.5 * 0.95,
-  depth: LAYOUT_COLUMN_MAX_WIDTH * (2 / 3) * 0.5 * 0.95,
-  uvOffsetEachFace: true,
-})
-const descGeometry = createBox({
-  width: 4,
-  height: 2,
-  depth: 2,
-  uvOffsetEachFace: true,
-})
-const labelGeometry = createPlane({
-  width: LABEL_WIDTH,
-  height: LABEL_HEIGHT,
-})
-
-const hoverCube = new Cube(gl, {
-  geometry: cubeGeometry,
-  solidColor: [0, 0, 1, 1],
-})
-hoverCube.setPosition([-1, 0, 0])
-hoverCube.setScale([1.05, 1.05, 1.05])
-hoverCube.setParent(rootNode)
 
 document.body.addEventListener('mousemove', onMouseMove)
 document.body.addEventListener('click', onMouseClick)
@@ -450,57 +293,54 @@ async function onMouseClick(e: MouseEvent) {
   }
   const hitView = getHoveredSceneNode(rayStart, rayDirection)
 
-  if (!hitView) {
+  if (hitView) {
+    if (hitView.externalURL) {
+      if (hitView.externalURL.startsWith('mailto')) {
+        window.open(hitView.externalURL)
+      } else {
+        window.open(hitView.externalURL, '_blank')
+      }
+      return
+    }
+    if (hitView.project && hitView.open) {
+      return
+    }
+    hitView.open = true
+  } else {
     let newLevelIndex = store.getState().ui.activeLevelIdx
     if (newLevelIndex === -1) {
       return
     }
 
     if (prevView?.project) {
-      new Tween({
-        durationMS: 500,
-        easeName: 'exp_In',
-        onUpdate: (v) => {
-          boxesRootNode.traverse((child) => {
-            if (!(child instanceof View)) {
-              return
-            }
-            if (child === prevView) {
-              // child.fadeFactor = v
-              return
-            }
-            child.fadeFactor = mapNumberRange(v, 0, 1, 0.2, 1)
-          })
-        },
-      }).start()
+      fadeInFadedOutView(boxesRootNode)
     }
 
     const viewsToClose: SceneNode[] = []
 
-    await new Promise((resolve) => {
-      rootNode.traverse((child) => {
-        const view = child as View
-        if (view.findParentByName(View.MESH_WRAPPER_NAME)) {
-          return
+    let childrenPrevRowCount = 0
+    traverseViewNodes(rootNode, (view) => {
+      if (view.findParentByName(View.MESH_WRAPPER_NAME)) {
+        return
+      }
+      if (view.levelIndex > newLevelIndex + 2) {
+        viewsToClose.push(view)
+      }
+      if (view.levelIndex === newLevelIndex + 2) {
+        childrenPrevRowCount++
+      }
+    })
+
+    await promisifiedTween({
+      durationMS: TRANSITION_ROW_DURATION,
+      easeName: TRANSITION_ROW_EASE,
+      onUpdate: (v) => {
+        for (let i = 0; i < viewsToClose.length; i++) {
+          const view = viewsToClose[i] as View
+          view.tweenAnimMode = 1
+          view.visibilityTweenFactor = 1 - v
         }
-        // if (view.levelIndex === prevView.levelIndex) {
-        //   viewsToClose.push(...view.siblings)
-        // }
-        if (view.levelIndex > newLevelIndex + 2) {
-          viewsToClose.push(view)
-        }
-        new Tween({
-          durationMS: TRANSITION_ROW_DURATION,
-          easeName: TRANSITION_ROW_EASE,
-          onUpdate: (v) => {
-            for (let i = 0; i < viewsToClose.length; i++) {
-              const view = viewsToClose[i] as View
-              view.visibilityTweenFactor = 1 - v
-            }
-          },
-          onComplete: () => resolve(null),
-        }).start()
-      })
+      },
     })
 
     for (let i = 0; i < viewsToClose.length; i++) {
@@ -508,30 +348,17 @@ async function onMouseClick(e: MouseEvent) {
       view.visible = false
     }
 
-    console.log({ newLevelIndex })
-
-    let childrenPrevRowCount = 0
-    rootNode.traverse((child) => {
-      const view = child as View
-      if (view.levelIndex === newLevelIndex + 2) {
-        childrenPrevRowCount++
-      }
-    })
-
-    console.log({ childrenPrevRowCount })
-
     const oldCamX = perspectiveCamera.position[0]
     const oldCamY = perspectiveCamera.position[1]
     const oldCamLookAtX = perspectiveCamera.lookAt[0]
     const oldCamLookAtY = perspectiveCamera.lookAt[1]
+    const oldCamLookAtZ = perspectiveCamera.lookAt[2]
     const oldCamZ = perspectiveCamera.position[2]
     const rowHeight = getChildrenRowTotalHeight(childrenPrevRowCount)
     const offset = -2
     const rowCenter =
       -rowHeight / 2 - LAYOUT_LEVEL_Y_OFFSET * (newLevelIndex + 2 + offset)
-
     const offsetPos = 8 + (newLevelIndex + 2 + offset) * CAMERA_LEVEL_Z_OFFSET
-
     const cameraTargetX = 0
     const cameraTargetY = rowCenter
 
@@ -546,6 +373,7 @@ async function onMouseClick(e: MouseEvent) {
         perspectiveCamera.lookAt[0] = oldCamLookAtX - oldCamLookAtX * v
         perspectiveCamera.lookAt[1] =
           oldCamLookAtY + (rowCenter - oldCamLookAtY) * v
+        perspectiveCamera.lookAt[2] = oldCamLookAtZ + (-100 - oldCamLookAtZ) * v
       },
       onComplete: () => {},
     }).start()
@@ -553,6 +381,9 @@ async function onMouseClick(e: MouseEvent) {
     newLevelIndex--
     store.dispatch(setActiveLevelIdx(newLevelIndex))
     prevView = hitView
+    if (prevView) {
+      prevView.open = false
+    }
     return
   }
   store.dispatch(setActiveLevelIdx(hitView.levelIndex - 2))
@@ -563,7 +394,6 @@ async function onMouseClick(e: MouseEvent) {
     const projectY = hitView.position[1]
     const projectZ = hitView.position[2]
     const newZ = projectZ + CAMERA_FOCUS_OFFSET_Z
-
     const camOldX = perspectiveCamera.position[0]
     const camOldY = perspectiveCamera.position[1]
     const camOldZ = perspectiveCamera.position[2]
@@ -572,70 +402,68 @@ async function onMouseClick(e: MouseEvent) {
     const camOldLookAtZ = perspectiveCamera.lookAt[2]
 
     await Promise.all([
-      new Promise((resolve) =>
-        new Tween({
-          durationMS: 500,
-          easeName: 'quad_InOut',
-          onUpdate: (v) => {
-            const posX = camOldX + (projectX - camOldX) * v
-            const posY = camOldY + (projectY - camOldY) * v
-            const posZ = camOldZ + (newZ - camOldZ) * v
+      promisifiedTween({
+        durationMS: 500,
+        easeName: 'quad_InOut',
+        onUpdate: (v) => {
+          const posX = camOldX + (projectX - camOldX) * v
+          const posY = camOldY + (projectY - camOldY) * v
+          const posZ = camOldZ + (newZ - camOldZ) * v
 
-            perspectiveCamera.position = [posX, posY, posZ]
-          },
-          onComplete: () => resolve(null),
-        }).start(),
-      ),
-      new Promise((resolve) =>
-        new Tween({
-          durationMS: 475,
-          easeName: 'quad_InOut',
-          onUpdate: (v) => {
-            const lookAtX = camOldLookAtX + (projectX - camOldLookAtX) * v
-            const lookAtY = camOldLookAtY + (projectY - camOldLookAtY) * v
-            const lookAtZ = camOldLookAtZ + (projectZ - camOldLookAtZ) * v
+          perspectiveCamera.position = [posX, posY, posZ]
+        },
+      }),
+      promisifiedTween({
+        durationMS: 475,
+        easeName: 'quad_InOut',
+        onUpdate: (v) => {
+          const lookAtX = camOldLookAtX + (projectX - camOldLookAtX) * v
+          const lookAtY = camOldLookAtY + (projectY - camOldLookAtY) * v
+          const lookAtZ = camOldLookAtZ + (projectZ - camOldLookAtZ) * v
 
-            perspectiveCamera.lookAt = [lookAtX, lookAtY, lookAtZ]
-          },
-          onComplete: () => resolve(null),
-        }).start(),
-      ),
-      new Promise((resolve) =>
-        prevView?.project
-          ? new Tween({
-              durationMS: 400,
-              easeName: 'linear',
-              onUpdate: (v) => {
-                prevView.fadeFactor = mapNumberRange(v, 0, 1, 1, 0.2)
-                hitView.fadeFactor = v
-              },
-              onComplete: () => resolve(null),
-            }).start()
-          : new Tween({
-              durationMS: 400,
-              easeName: 'linear',
-              onUpdate: (v) => {
-                boxesRootNode.traverse((child) => {
-                  if (!(child instanceof View)) {
-                    return
-                  }
-                  if (child === hitView) {
-                    // child.fadeFactor = v
-                    return
-                  }
-                  child.fadeFactor = mapNumberRange(v, 0, 1, 1, 0.2)
-                })
-              },
-              onComplete: () => resolve(null),
-            }).start(),
-      ),
+          perspectiveCamera.lookAt = [lookAtX, lookAtY, lookAtZ]
+        },
+      }),
+      prevView?.project
+        ? promisifiedTween({
+            durationMS: 400,
+            easeName: 'exp_In',
+            onUpdate: (v) => {
+              prevView.fadeFactor = mapNumberRange(
+                v,
+                0,
+                1,
+                1,
+                View.FADED_OUT_FACTOR,
+              )
+              hitView.fadeFactor = v
+            },
+          })
+        : promisifiedTween({
+            durationMS: 400,
+            easeName: 'exp_In',
+            onUpdate: (v) => {
+              traverseViewNodes(boxesRootNode, (child) => {
+                if (child === hitView) {
+                  return
+                }
+                child.fadeFactor = mapNumberRange(
+                  v,
+                  0,
+                  1,
+                  1,
+                  View.FADED_OUT_FACTOR,
+                )
+              })
+            },
+          }),
     ])
 
     perspectiveCamera.position = [projectX, projectY, newZ]
     perspectiveCamera.lookAt = [projectX, projectY, projectZ]
-    perspectiveCamera.updateViewMatrix().updateProjectionViewMatrix()
-    console.log('swap')
+    // perspectiveCamera.updateViewMatrix().updateProjectionViewMatrix()
     prevView = hitView
+    prevView.open = false
 
     store.dispatch(setIsCurrentlyTransitionViews(false))
 
@@ -643,22 +471,7 @@ async function onMouseClick(e: MouseEvent) {
   }
 
   if (prevView?.project) {
-    new Tween({
-      durationMS: 500,
-      easeName: 'exp_In',
-      onUpdate: (v) => {
-        boxesRootNode.traverse((child) => {
-          if (!(child instanceof View)) {
-            return
-          }
-          if (child === hitView) {
-            child.fadeFactor = v
-            return
-          }
-          child.fadeFactor = mapNumberRange(v, 0, 1, 0.2, 1)
-        })
-      },
-    }).start()
+    fadeInFadedOutView(boxesRootNode, true)
   }
 
   const prevLevel = prevView?.levelIndex || 0
@@ -669,36 +482,43 @@ async function onMouseClick(e: MouseEvent) {
   let showChildRow = true
   let childRowHasDelay = true
   let animateCamera = true
+
   if (prevView) {
-    // debugger
+    prevView.open = false
     if (currLevel < prevLevel) {
       const viewsToClose: SceneNode[] = []
 
-      await new Promise((resolve) => {
-        prevView.traverse((child) => {
-          const view = child as View
-          if (view.findParentByName(View.MESH_WRAPPER_NAME)) {
-            return
-          }
-          if (view.levelIndex === prevView.levelIndex) {
-            viewsToClose.push(...view.siblings)
-          }
-          if (view.levelIndex > prevView.levelIndex) {
-            viewsToClose.push(view)
-          }
-          new Tween({
-            durationMS: TRANSITION_ROW_DURATION,
-            easeName: TRANSITION_ROW_EASE,
-            onUpdate: (v) => {
-              for (let i = 0; i < viewsToClose.length; i++) {
-                const view = viewsToClose[i] as View
-                view.visibilityTweenFactor = 1 - v
-              }
-            },
-            onComplete: () => resolve(null),
-          }).start()
-        })
+      prevView.traverse((child) => {
+        const view = child as View
+        if (view.findParentByName(View.MESH_WRAPPER_NAME)) {
+          return
+        }
+        if (view.levelIndex === prevView.levelIndex) {
+          viewsToClose.push(...view.siblings)
+        }
+        if (view.levelIndex > prevView.levelIndex) {
+          viewsToClose.push(view)
+        }
       })
+
+      const closeActiveChildrenShelf = async () =>
+        promisifiedTween({
+          durationMS: TRANSITION_ROW_DURATION,
+          easeName: TRANSITION_ROW_EASE,
+          onUpdate: (v) => {
+            for (let i = 0; i < viewsToClose.length; i++) {
+              const view = viewsToClose[i] as View
+              view.tweenAnimMode = 1
+              view.visibilityTweenFactor = 1 - v
+            }
+          },
+        })
+
+      if (prevView.project) {
+        closeActiveChildrenShelf()
+      } else {
+        await closeActiveChildrenShelf()
+      }
 
       for (let i = 0; i < viewsToClose.length; i++) {
         const view = viewsToClose[i] as View
@@ -706,7 +526,6 @@ async function onMouseClick(e: MouseEvent) {
       }
 
       hitView.open = false
-
       showChildRow = !prevView.findParentByName(hitView.name as string)
     } else if (currLevel === prevLevel) {
       if (hitView.name === prevView.name) {
@@ -715,18 +534,16 @@ async function onMouseClick(e: MouseEvent) {
           view.visible = true
         }
         const hitViewOpen = hitView.open
-        await new Promise((resolve) => {
-          new Tween({
-            durationMS: TRANSITION_ROW_DURATION,
-            easeName: TRANSITION_ROW_EASE,
-            onUpdate: (v) => {
-              for (let i = 0; i < hitView.children.length; i++) {
-                const view = hitView.children[i] as View
-                view.visibilityTweenFactor = hitViewOpen ? 1 - v : v
-              }
-            },
-            onComplete: () => resolve(null),
-          }).start()
+        await promisifiedTween({
+          durationMS: TRANSITION_ROW_DURATION,
+          easeName: TRANSITION_ROW_EASE,
+          onUpdate: (v) => {
+            for (let i = 0; i < hitView.children.length; i++) {
+              const view = hitView.children[i] as View
+              view.tweenAnimMode = hitViewOpen ? 1 : 0
+              view.visibilityTweenFactor = hitViewOpen ? 1 - v : v
+            }
+          },
         })
         for (let i = 0; i < hitView.children.length; i++) {
           const view = hitView.children[i] as View
@@ -735,22 +552,17 @@ async function onMouseClick(e: MouseEvent) {
         hitView.open = !hitViewOpen
         showChildRow = false
       } else {
-        await new Promise((resolve) =>
-          new Tween({
-            durationMS: TRANSITION_ROW_DURATION,
-            easeName: TRANSITION_ROW_EASE,
-            onUpdate: (v) => {
-              console.log(prevView.children)
-              for (let i = 0; i < prevView.children.length; i++) {
-                const view = prevView.children[i] as View
-                view.visibilityTweenFactor = 1 - v
-              }
-            },
-            onComplete: () => resolve(null),
-          }).start(),
-        )
-
-        console.log('hit here')
+        await promisifiedTween({
+          durationMS: TRANSITION_ROW_DURATION,
+          easeName: TRANSITION_ROW_EASE,
+          onUpdate: (v) => {
+            for (let i = 0; i < prevView.children.length; i++) {
+              const view = prevView.children[i] as View
+              view.tweenAnimMode = 1
+              view.visibilityTweenFactor = 1 - v
+            }
+          },
+        })
 
         for (let i = 0; i < prevView.children.length; i++) {
           const view = prevView.children[i] as View
@@ -766,25 +578,12 @@ async function onMouseClick(e: MouseEvent) {
     }
   }
 
-  // if (!hitView.children.length) {
-  //   boxesRootNode.traverse((child) => {
-  //     if (!(child instanceof View)) {
-  //       return
-  //     }
-  //     if (child === hitView) {
-  //       return
-  //     }
-  //     child.fadeFactor = 0.2
-  //   })
-  //   showChildRow = false
-  //   animateCamera = false
-  // }
-
   if (animateCamera) {
     const oldCamX = perspectiveCamera.position[0]
     const oldCamY = perspectiveCamera.position[1]
     const oldCamLookAtX = perspectiveCamera.lookAt[0]
     const oldCamLookAtY = perspectiveCamera.lookAt[1]
+    const oldCamLookAtZ = perspectiveCamera.lookAt[2]
     const oldCamZ = perspectiveCamera.position[2]
     const rowHeight = getChildrenRowTotalHeight(
       (showChildRow || hitView.open ? hitView.children : hitView.siblings)
@@ -793,9 +592,7 @@ async function onMouseClick(e: MouseEvent) {
     const offset = showChildRow || hitView.open ? -1 : -2
     const rowCenter =
       -rowHeight / 2 - LAYOUT_LEVEL_Y_OFFSET * (hitView.levelIndex + offset)
-
     const offsetPos = 8 + (hitView.levelIndex + offset) * CAMERA_LEVEL_Z_OFFSET
-
     const cameraTargetX = 0
     const cameraTargetY = rowCenter
 
@@ -810,6 +607,7 @@ async function onMouseClick(e: MouseEvent) {
         perspectiveCamera.lookAt[0] = oldCamLookAtX - oldCamLookAtX * v
         perspectiveCamera.lookAt[1] =
           oldCamLookAtY + (rowCenter - oldCamLookAtY) * v
+        perspectiveCamera.lookAt[2] = oldCamLookAtZ + (-100 - oldCamLookAtZ) * v
       },
       onComplete: () => {},
     }).start()
@@ -821,33 +619,25 @@ async function onMouseClick(e: MouseEvent) {
       view.loadThumbnail()
       view.visible = true
     }
-    await new Promise((resolve) => {
-      new Tween({
-        durationMS: TRANSITION_ROW_DURATION,
-        delayMS: childRowHasDelay ? TRANSITION_ROW_DELAY : 0,
-        easeName: TRANSITION_ROW_EASE,
-        onUpdate: (v) => {
-          for (let i = 0; i < hitView.children.length; i++) {
-            const view = hitView.children[i] as View
-            view.visibilityTweenFactor = v
-          }
-        },
-        onComplete: () => resolve(null),
-      }).start()
+    await promisifiedTween({
+      durationMS: TRANSITION_ROW_DURATION,
+      delayMS: childRowHasDelay ? TRANSITION_ROW_DELAY : 0,
+      easeName: TRANSITION_ROW_EASE,
+      onUpdate: (v) => {
+        for (let i = 0; i < hitView.children.length; i++) {
+          const view = hitView.children[i] as View
+          view.tweenAnimMode = 0
+          view.visibilityTweenFactor = v
+        }
+      },
     })
-
-    store.dispatch(setShowCubeHighlight(true))
 
     hitView.open = true
   }
+  store.dispatch(setShowCubeHighlight(true))
   store.dispatch(setIsCurrentlyTransitionViews(false))
-  // console.log('currLevel', currLevel, 'prevLevel', prevLevel)
-  if (hitView) {
-    // console.log(
-    //   `new hitview ${hitView.name} is ${hitView.open ? 'open' : 'not open'}`,
-    // )
-    prevView = hitView
-  }
+
+  prevView = hitView
 }
 
 function updateFrame(ts: DOMHighResTimeStamp) {
@@ -855,6 +645,8 @@ function updateFrame(ts: DOMHighResTimeStamp) {
   oldTime = ts
 
   requestAnimationFrame(updateFrame)
+
+  // console.log(perspectiveCamera.position, perspectiveCamera.lookAt)
 
   // console.log(freeOrbitCamera.position)
 
@@ -869,16 +661,17 @@ function updateFrame(ts: DOMHighResTimeStamp) {
   )
 
   const hitView = getHoveredSceneNode(rayStart, rayDirection)
-  store.dispatch(setIsHovering(!!hitView))
 
   const {
     ui: { showCubeHighlight },
   } = store.getState()
 
-  if (hitView && showCubeHighlight) {
+  if (hitView && !hitView.open && showCubeHighlight) {
     hoverCube.setPosition(hitView.position)
+    store.dispatch(setIsHovering(true))
   } else {
     hoverCube.setPosition([100, 100, 100])
+    store.dispatch(setIsHovering(false))
   }
 
   // update camera
@@ -949,10 +742,6 @@ function updateFrame(ts: DOMHighResTimeStamp) {
     gl.disable(gl.CULL_FACE)
   }
 
-  if (singleView) {
-    singleView.render()
-  }
-
   debugLines.forEach((rayLine) => rayLine.render())
 
   // let writeBuffer = fboBlurPing
@@ -993,16 +782,11 @@ function updateFrame(ts: DOMHighResTimeStamp) {
 }
 
 function getHoveredSceneNode(rayStart: vec3, rayDirection: vec3): View {
-  let prevRayTimeSample = Infinity // better name?
+  let prevRayTimeSample = Infinity
   let hitView!: View
 
-  boxesRootNode.traverse((child) => {
-    if (!(child instanceof View)) {
-      return
-    }
-
+  traverseViewNodes(boxesRootNode, (child) => {
     const rayTime = child.testRayIntersection(rayStart, rayDirection)
-
     if (rayTime !== null && rayTime < prevRayTimeSample) {
       prevRayTimeSample = rayTime
       hitView = child
@@ -1010,4 +794,31 @@ function getHoveredSceneNode(rayStart: vec3, rayDirection: vec3): View {
   })
 
   return hitView
+}
+
+async function fadeInFadedOutView(
+  rootNode: SceneNode,
+  includeActive = false,
+  durationMS = 500,
+  easeName: easeType = 'exp_In',
+) {
+  return promisifiedTween({
+    durationMS,
+    easeName,
+    onUpdate: (v) => {
+      traverseViewNodes(rootNode, (child) => {
+        if (!includeActive && child === prevView) {
+          return
+        }
+        child.fadeFactor = mapNumberRange(v, 0, 1, View.FADED_OUT_FACTOR, 1)
+      })
+    },
+  })
+}
+
+function sizeCanvas() {
+  $canvas.width = innerWidth * devicePixelRatio
+  $canvas.height = innerHeight * devicePixelRatio
+  $canvas.style.setProperty('width', `${innerWidth}px`)
+  $canvas.style.setProperty('height', `${innerHeight}px`)
 }
