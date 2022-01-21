@@ -1,12 +1,11 @@
 import { vec3 } from 'gl-matrix'
+
+import { SceneNode } from './lib/hwoa-rang-gl2'
 import {
   intersectRayWithAABB,
   intersectRayWithQuad,
-  SceneNode,
-} from './lib/hwoa-rang-gl2/dist'
-import Cube from './meshes/cube'
-import { Project, ViewProps } from './interfaces'
-import Label from './meshes/label'
+} from './lib/hwoa-rang-math'
+
 import { promisifiedLoadImage } from './helpers'
 import {
   CUBE_DEPTH,
@@ -14,6 +13,11 @@ import {
   LABEL_MARGIN_Y,
   LABEL_MARGIN_Z,
 } from './constants'
+
+import Cube from './meshes/cube'
+import Label from './meshes/label'
+
+import { Project, ViewProps } from './interfaces'
 
 export default class View extends SceneNode {
   visible = false

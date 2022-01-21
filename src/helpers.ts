@@ -7,10 +7,12 @@ import {
   LAYOUT_LEVEL_Y_OFFSET,
   LAYOUT_LEVEL_Z_OFFSET,
 } from './constants'
-import { Project, ProjectGroup } from './interfaces'
-import { Tween, TweenProps } from './lib/hwoa-rang-anim/dist'
-import { SceneNode } from './lib/hwoa-rang-gl2/dist'
+
 import View from './view'
+
+import { Project, ProjectGroup } from './interfaces'
+import { Tween, TweenProps } from './lib/hwoa-rang-anim'
+import { SceneNode } from './lib/hwoa-rang-gl2'
 
 /**
  *

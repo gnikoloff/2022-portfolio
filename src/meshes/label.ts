@@ -1,4 +1,4 @@
-import { TextureAtlas } from '../lib/hwoa-rang-gl2/dist'
+import { TextureAtlas } from '../lib/hwoa-rang-gl2'
 import Quad from './quad'
 import { LabelProps } from '../interfaces'
 import { promisifiedLoadImage } from '../helpers'

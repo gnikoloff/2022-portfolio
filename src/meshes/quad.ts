@@ -1,5 +1,5 @@
 import { vec3 } from 'gl-matrix'
-import { Drawable } from '../lib/hwoa-rang-gl2/dist'
+import { Drawable } from '../lib/hwoa-rang-gl2'
 
 import VERTEX_SHADER_SRC from '../shaders/uberShader.vert'
 import FRAGMENT_SHADER_SRC from '../shaders/uberShader.frag'

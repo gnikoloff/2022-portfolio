@@ -29,15 +29,18 @@ import {
   OrthographicCamera,
   PerspectiveCamera,
   SceneNode,
-  deg2Rad,
-  projectMouseToWorldSpace,
   createAndBindUBOToBase,
   createUniformBlockInfo,
-  UBOInfo,
   TextureAtlas,
+} from './lib/hwoa-rang-gl2'
+
+import {
   mapNumberRange,
-} from './lib/hwoa-rang-gl2/dist'
-import { easeType, Tween } from './lib/hwoa-rang-anim/dist'
+  deg2Rad,
+  projectMouseToWorldSpace,
+} from './lib/hwoa-rang-math'
+
+import { easeType, Tween } from './lib/hwoa-rang-anim'
 
 import Cube from './meshes/cube'
 import View from './view'

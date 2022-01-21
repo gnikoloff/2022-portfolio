@@ -1,5 +1,7 @@
 import { vec3 } from 'gl-matrix'
-import { Drawable, BoundingBox, TextureAtlas } from '../lib/hwoa-rang-gl2/dist'
+
+import { Drawable, TextureAtlas } from '../lib/hwoa-rang-gl2'
+import { BoundingBox } from '../lib/hwoa-rang-math'
 
 import { CubeProps } from '../interfaces'
 import { CUBE_HEIGHT, CUBE_WIDTH } from '../constants'

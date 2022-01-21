@@ -5,7 +5,7 @@ import {
   PlaneGeometry,
   ShaderDefineValue,
   UniformValue,
-} from './lib/hwoa-rang-gl2/dist'
+} from './lib/hwoa-rang-gl2'
 
 export interface UBOVariable {
   offset: number

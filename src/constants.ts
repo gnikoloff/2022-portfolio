@@ -1,4 +1,4 @@
-import { easeType } from './lib/hwoa-rang-anim/dist'
+import { easeType } from './lib/hwoa-rang-anim'
 
 export const API_ENDPOINT = 'http://192.168.2.123:3001/api'
 
