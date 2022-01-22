@@ -131,6 +131,14 @@ export const promisifiedTween = ({
     }).start(),
   )
 
+export const openURL = (url: string): void => {
+  if (url.startsWith('mailto')) {
+    window.open(url)
+  } else {
+    window.open(url, '_blank')
+  }
+}
+
 export const traverseViewNodes = (
   node: SceneNode,
   callback: (node: View) => void,

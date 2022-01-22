@@ -33,6 +33,10 @@ export default class Label extends Quad {
     this.updateUniform('u_revealMixFactor', v)
   }
 
+  set fadeFactor(v: number) {
+    this.updateUniform('u_fadeMixFactor', v)
+  }
+
   constructor(gl: WebGL2RenderingContext, { geometry, label }: LabelProps) {
     super(gl, {
       geometry,
@@ -43,7 +47,7 @@ export default class Label extends Quad {
         USE_MODEL_MATRIX: true,
         USE_UV_TRANSFORM: true,
         USE_TEXTURE: true,
-        // SUPPORTS_FADING: true,
+        SUPPORTS_FADING: true,
         USE_MASK_TEXTURE: true,
       },
       name: label,
@@ -86,6 +90,10 @@ export default class Label extends Quad {
     this.setUniform('u_revealMixFactor', {
       type: gl.FLOAT,
       value: 0,
+    })
+    this.setUniform('u_fadeMixFactor', {
+      type: gl.FLOAT,
+      value: 1,
     })
     this.setUniform('u_uvOffsetSizes', {
       type: gl.FLOAT_VEC4,

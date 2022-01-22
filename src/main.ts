@@ -3,11 +3,10 @@ import * as dat from 'dat.gui'
 import { Project } from './interfaces'
 import store from './store'
 
-import './style.css'
-
 import {
   getChildrenRowTotalHeight,
   getXYZForViewIdxWithinLevel,
+  openURL,
   promisifiedTween,
   sortProjectEntriesByYear,
   transformProjectEntries,
@@ -45,6 +44,8 @@ import { easeType, Tween } from './lib/hwoa-rang-anim'
 import Cube from './meshes/cube'
 import View from './view'
 import Line from './meshes/line'
+
+import './style.css'
 
 import {
   API_ENDPOINT,
@@ -270,6 +271,23 @@ document.body.addEventListener('click', onMouseClick)
 // document.body.addEventListener('touchmove', (e) => e.preventDefault())
 requestAnimationFrame(updateFrame)
 
+// let oldMX = 0
+// let oldMY = 0
+// store.subscribe(() => {
+//   const state = store.getState().ui
+//   const mouseXChanged = Math.abs(state.mousePos[0] - oldMX) > 100
+//   const mouseYChanged = Math.abs(state.mousePos[1] - oldMY) > 100
+//   if (mouseXChanged) {
+//     oldMX = state.mousePos[0]
+//   }
+//   if (mouseYChanged) {
+//     oldMY = state.mousePos[1]
+//   }
+//   if (mouseXChanged && mouseYChanged) {
+//     console.log(state)
+//   }
+// })
+
 function onMouseMove(e: MouseEvent) {
   store.dispatch(setMousePos([e.pageX, e.pageY]))
 }
@@ -294,15 +312,13 @@ async function onMouseClick(e: MouseEvent) {
   if (isCurrentlyTransitionViews) {
     return
   }
+
+  store.dispatch(setIsCurrentlyTransitionViews(true))
   const hitView = getHoveredSceneNode(rayStart, rayDirection)
 
   if (hitView) {
     if (hitView.externalURL) {
-      if (hitView.externalURL.startsWith('mailto')) {
-        window.open(hitView.externalURL)
-      } else {
-        window.open(hitView.externalURL, '_blank')
-      }
+      openURL(hitView.externalURL)
       return
     }
     if (hitView.project && hitView.open) {
@@ -310,8 +326,10 @@ async function onMouseClick(e: MouseEvent) {
     }
     hitView.open = true
   } else {
+    // handle clicking in empty space
     let newLevelIndex = store.getState().ui.activeLevelIdx
     if (newLevelIndex === -1) {
+      store.dispatch(setIsCurrentlyTransitionViews(false))
       return
     }
 
@@ -345,7 +363,6 @@ async function onMouseClick(e: MouseEvent) {
         }
       },
     })
-
     for (let i = 0; i < viewsToClose.length; i++) {
       const view = viewsToClose[i] as View
       view.visible = false
@@ -353,10 +370,10 @@ async function onMouseClick(e: MouseEvent) {
 
     const oldCamX = perspectiveCamera.position[0]
     const oldCamY = perspectiveCamera.position[1]
+    const oldCamZ = perspectiveCamera.position[2]
     const oldCamLookAtX = perspectiveCamera.lookAt[0]
     const oldCamLookAtY = perspectiveCamera.lookAt[1]
     const oldCamLookAtZ = perspectiveCamera.lookAt[2]
-    const oldCamZ = perspectiveCamera.position[2]
     const rowHeight = getChildrenRowTotalHeight(childrenPrevRowCount)
     const offset = -2
     const rowCenter =
@@ -364,7 +381,6 @@ async function onMouseClick(e: MouseEvent) {
     const offsetPos = 8 + (newLevelIndex + 2 + offset) * CAMERA_LEVEL_Z_OFFSET
     const cameraTargetX = 0
     const cameraTargetY = rowCenter
-
     new Tween({
       durationMS: TRANSITION_CAMERA_DURATION,
       easeName: TRANSITION_CAMERA_EASE,
@@ -372,13 +388,11 @@ async function onMouseClick(e: MouseEvent) {
         perspectiveCamera.position[0] = oldCamX + (cameraTargetX - oldCamX) * v
         perspectiveCamera.position[1] = oldCamY + (cameraTargetY - oldCamY) * v
         perspectiveCamera.position[2] = oldCamZ + (offsetPos - oldCamZ) * v
-
         perspectiveCamera.lookAt[0] = oldCamLookAtX - oldCamLookAtX * v
         perspectiveCamera.lookAt[1] =
           oldCamLookAtY + (rowCenter - oldCamLookAtY) * v
         perspectiveCamera.lookAt[2] = oldCamLookAtZ + (-100 - oldCamLookAtZ) * v
       },
-      onComplete: () => {},
     }).start()
 
     newLevelIndex--
@@ -387,10 +401,10 @@ async function onMouseClick(e: MouseEvent) {
     if (prevView) {
       prevView.open = false
     }
+    store.dispatch(setIsCurrentlyTransitionViews(false))
     return
   }
   store.dispatch(setActiveLevelIdx(hitView.levelIndex - 2))
-  store.dispatch(setIsCurrentlyTransitionViews(true))
 
   if (hitView.project) {
     const projectX = hitView.position[0]
@@ -439,7 +453,13 @@ async function onMouseClick(e: MouseEvent) {
                 1,
                 View.FADED_OUT_FACTOR,
               )
-              hitView.fadeFactor = v
+              hitView.fadeFactor = mapNumberRange(
+                v,
+                0,
+                1,
+                View.FADED_OUT_FACTOR,
+                1,
+              )
             },
           })
         : promisifiedTween({
@@ -555,6 +575,7 @@ async function onMouseClick(e: MouseEvent) {
         hitView.open = !hitViewOpen
         showChildRow = false
       } else {
+        console.log('hit here')
         await promisifiedTween({
           durationMS: TRANSITION_ROW_DURATION,
           easeName: TRANSITION_ROW_EASE,
@@ -669,7 +690,7 @@ function updateFrame(ts: DOMHighResTimeStamp) {
     ui: { showCubeHighlight },
   } = store.getState()
 
-  if (hitView && !hitView.open && showCubeHighlight) {
+  if (hitView && showCubeHighlight) {
     hoverCube.setPosition(hitView.position)
     store.dispatch(setIsHovering(true))
   } else {

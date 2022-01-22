@@ -5,14 +5,14 @@ import {
   intersectRayWithAABB,
   intersectRayWithQuad,
 } from './lib/hwoa-rang-math'
-
-import { promisifiedLoadImage } from './helpers'
 import {
   CUBE_DEPTH,
   CUBE_HEIGHT,
   LABEL_MARGIN_Y,
   LABEL_MARGIN_Z,
 } from './constants'
+
+import { promisifiedLoadImage } from './helpers'
 
 import Cube from './meshes/cube'
 import Label from './meshes/label'
@@ -38,10 +38,6 @@ export default class View extends SceneNode {
   static FADED_OUT_FACTOR = 0.1
   static MESH_WRAPPER_NAME = 'mesh-wrapper'
 
-  get sampleProgram(): WebGLProgram {
-    return this.projectThumbNode.program
-  }
-
   get children() {
     return this._children.filter(
       (child) => !child.findParentByName(View.MESH_WRAPPER_NAME),
@@ -57,6 +53,12 @@ export default class View extends SceneNode {
 
   set fadeFactor(v: number) {
     this.projectThumbNode.fadeFactor = v
+    if (this.projectLabelNode) {
+      this.projectLabelNode.fadeFactor = v
+    }
+  }
+
+  set labelRevealFactor(v: number) {
     if (this.projectLabelNode) {
       this.projectLabelNode.revealMixFactor = v
     }
@@ -172,34 +174,6 @@ export default class View extends SceneNode {
     ctx.textBaseline = 'middle'
     ctx.fillText(this.name as string, canvas.width / 2, canvas.height / 2)
     this.projectThumbNode.displayPoster(canvas)
-  }
-
-  reveal(
-    scaleX = 1,
-    scaleY = 1,
-    scaleZ = 1,
-    rotX = 0,
-    rotY = 0,
-    rotZ = 0,
-    deformAngle = 0,
-  ) {
-    this.projectThumbNode.setScale([scaleX, scaleY, scaleZ])
-    this.projectThumbNode.setRotation([rotX, rotY, rotZ])
-    this.projectThumbNode.deformationAngle = deformAngle
-  }
-
-  hide(
-    scaleX = 0,
-    scaleY = 0,
-    scaleZ = 0,
-    rotX = 0,
-    rotY = 0,
-    rotZ = 0,
-    deformAngle = 0,
-  ) {
-    this.projectThumbNode.setScale([scaleX, scaleY, scaleZ])
-    this.projectThumbNode.setRotation([rotX, rotY, rotZ])
-    this.projectThumbNode.deformationAngle = deformAngle
   }
 
   render(): void {

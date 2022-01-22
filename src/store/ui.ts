@@ -3,6 +3,7 @@ import { Dispatch } from 'redux'
 import { CombinedState } from '.'
 import { ActionPayload } from '../interfaces'
 
+const SET_ACTIVE_ITEM_UID = 'ui/SET_ACTIVE_ITEM_UID'
 const SET_ACTIVE_LEVEL_IDX = 'ui/SET_ACTIVE_LEVEL_IDX'
 const SET_MOUSE_POS = 'ui/SET_MOUSE_POS'
 const SET_IS_HOVERING = 'ui/SET_IS_HOVERING'
@@ -11,6 +12,7 @@ const SET_IS_CURRENTLY_TRANSITIONING_VIEW =
   'ui/SET_IS_CURRENTLY_TRANSITIONING_VIEW'
 
 export interface UIState {
+  activeItemUID: string | null
   activeLevelIdx: number
   mousePos: vec2
   isHovering: boolean
@@ -20,6 +22,7 @@ export interface UIState {
 }
 
 const initialState = {
+  activeItemUID: null,
   activeLevelIdx: -1,
   mousePos: [-1000, -1000],
   isHovering: false,
@@ -30,6 +33,12 @@ const initialState = {
 
 const views = (state = initialState, action: ActionPayload) => {
   switch (action.type) {
+    case SET_ACTIVE_ITEM_UID: {
+      return {
+        ...state,
+        activeItemUID: action.payload,
+      }
+    }
     case SET_ACTIVE_LEVEL_IDX: {
       return {
         ...state,
@@ -65,6 +74,11 @@ const views = (state = initialState, action: ActionPayload) => {
     }
   }
 }
+
+export const setActiveItemUID = (activeItemUID: string) => ({
+  type: SET_ACTIVE_ITEM_UID,
+  payload: activeItemUID,
+})
 
 export const setActiveLevelIdx = (activeLevelIdx: number) => ({
   type: SET_ACTIVE_LEVEL_IDX,
