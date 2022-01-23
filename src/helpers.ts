@@ -120,6 +120,7 @@ export const promisifiedTween = ({
   delayMS,
   easeName,
   onUpdate,
+  onComplete,
 }: TweenProps): Promise<null> =>
   new Promise((resolve) =>
     new Tween({
@@ -127,7 +128,12 @@ export const promisifiedTween = ({
       delayMS,
       easeName,
       onUpdate,
-      onComplete: () => resolve(null),
+      onComplete: () => {
+        if (onComplete) {
+          onComplete()
+        }
+        resolve(null)
+      },
     }).start(),
   )
 

@@ -38,8 +38,8 @@ export default class View extends SceneNode {
   static FADED_OUT_FACTOR = 0.1
   static MESH_WRAPPER_NAME = 'mesh-wrapper'
 
-  get children() {
-    return this._children.filter(
+  get children(): View[] {
+    return (this._children as View[]).filter(
       (child) => !child.findParentByName(View.MESH_WRAPPER_NAME),
     )
   }

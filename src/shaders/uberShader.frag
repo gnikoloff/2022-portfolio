@@ -92,7 +92,7 @@ void main () {
       #ifdef IS_CUBE
         if (vUv.x > FACE_STEP && vUv.x < FACE_STEP2) { 
           float aspect = MESH_WIDTH / MESH_HEIGHT;
-          float borderWidth = 0.015;
+          float borderWidth = 0.02;
           float maxX = 1.0 - borderWidth;
           float minX = borderWidth;
           float maxY = 1.0 - borderWidth;
