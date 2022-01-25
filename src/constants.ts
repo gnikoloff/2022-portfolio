@@ -2,6 +2,8 @@ import { easeType } from './lib/hwoa-rang-anim'
 
 export const API_ENDPOINT = 'http://192.168.2.123:3001/api'
 
+export const BASE_PAGE_TITLE = document.title
+
 export const LAYOUT_COLUMN_MAX_WIDTH = 14
 export const LAYOUT_ITEMS_PER_ROW = 4
 export const LAYOUT_LEVEL_Y_OFFSET = 10

@@ -6,7 +6,6 @@ import store from './store'
 import {
   getChildrenRowTotalHeight,
   getXYZForViewIdxWithinLevel,
-  openURL,
   promisifiedTween,
   sortProjectEntriesByYear,
   transformProjectEntries,
@@ -15,12 +14,10 @@ import {
 
 import {
   setActiveItemUID,
-  setActiveLevelIdx,
   setChildrenRowHeight,
   setIsCurrentlyTransitionViews,
   setIsHovering,
   setMousePos,
-  setShowCubeHighlight,
 } from './store/ui'
 
 import {
@@ -52,8 +49,8 @@ import './style.css'
 
 import {
   API_ENDPOINT,
+  BASE_PAGE_TITLE,
   CAMERA_FAR,
-  CAMERA_FOCUS_OFFSET_Z,
   CAMERA_LEVEL_Z_OFFSET,
   CAMERA_NEAR,
   CLOSE_BUTTON_DEPTH,
@@ -92,7 +89,9 @@ gui.add(OPTIONS, 'cameraFreeMode').onChange((v) => {
 
 let oldTime = 0
 let prevView!: View
+let hitView!: View
 let prevHoverView!: View
+let oldActiveItemUID: string
 let openButtonHoverTransition = false
 let closeButtonTextureCanvas: HTMLCanvasElement
 
@@ -233,7 +232,7 @@ fetch(API_ENDPOINT)
 
     const projectsNode = new View(gl, {
       ...viewGeoPartialProps,
-      name: 'projects',
+      name: 'Projects',
     })
     projectsNode.loadThumbnail()
     projectsNode.visibilityTweenFactor = 1
@@ -340,6 +339,38 @@ fetch(API_ENDPOINT)
     positionNodeWithinLevel(boxesRootNode, 0, -1)
   })
 
+store.subscribe(() => {
+  const {
+    ui: { activeItemUID },
+  } = store.getState()
+  if (hitView && activeItemUID !== oldActiveItemUID) {
+    let parentNode = hitView.parentNode
+    let urlPath = hitView.project ? hitView.project.uid : hitView.name
+    while (parentNode) {
+      const parent = parentNode as View
+      const fragment = parent.project ? parent.project.uid : parent.name
+
+      parentNode = parentNode.parentNode
+      if (!fragment) {
+        continue
+      }
+      urlPath = `${fragment}/${urlPath}`
+    }
+    if (urlPath) {
+      document.title = `${hitView.name} | ${BASE_PAGE_TITLE}`
+      history.replaceState(
+        {},
+        '',
+        `${location.origin}/${urlPath.toLowerCase()}`,
+      )
+    } else {
+      document.title = BASE_PAGE_TITLE
+      history.replaceState({}, '', location.origin)
+    }
+
+    oldActiveItemUID = activeItemUID
+  }
+})
 document.body.addEventListener('mousemove', onMouseMove)
 document.body.addEventListener('click', onMouseClick)
 // document.body.addEventListener('touchstart', (e) => e.preventDefault())
@@ -388,7 +419,8 @@ async function onMouseClick(e: MouseEvent) {
     return
   }
 
-  const [hitView, isOpenLink] = getHoveredSceneNode(rayStart, rayDirection)
+  const [_hitView, isOpenLink] = getHoveredSceneNode(rayStart, rayDirection)
+  hitView = _hitView
 
   if (isOpenLink && hitView.project) {
     open(hitView.project.url, '_blank')
@@ -448,6 +480,9 @@ async function onMouseClick(e: MouseEvent) {
     if (oldView.levelIndex - 2 < 0) {
       return
     }
+
+    store.dispatch(setActiveItemUID(oldView.uid))
+    hitView = oldView.parentNode as View
 
     toggleChildrenRowVisibility(oldView, false)
     store.dispatch(setActiveItemUID(oldView.parentNode.uid))
