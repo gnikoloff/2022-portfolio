@@ -655,21 +655,36 @@ function updateFrame(ts: DOMHighResTimeStamp) {
   const [hitView, isOpenLink] = getHoveredSceneNode(rayStart, rayDirection)
   // debugLines.push(new Line(gl, rayStart, rayDirection))
 
-  if (isOpenLink) {
-    if (hitView === prevHoverView) {
-      if (openButtonHoverTransition) {
-        console.log('same')
+  if (hitView) {
+    if (isOpenLink) {
+      if (hitView === prevHoverView) {
+        if (openButtonHoverTransition) {
+          new Tween({
+            durationMS: 300,
+            onUpdate: (v) => {
+              hitView.openHoverFactor = v
+            },
+          }).start()
+          openButtonHoverTransition = false
+        }
+      }
+    }
+  } else {
+    const oldView = activeItemUID
+      ? (boxesRootNode.findChild(
+          (child) => child.uid === activeItemUID,
+        ) as View)
+      : null
+    if (oldView) {
+      if (!openButtonHoverTransition) {
         new Tween({
-          durationMS: 250,
+          durationMS: 300,
           onUpdate: (v) => {
-            hitView.hoverFactor = v
+            oldView.openHoverFactor = 1 - v
           },
         }).start()
-        openButtonHoverTransition = false
+        openButtonHoverTransition = true
       }
-    } else {
-      openButtonHoverTransition = true
-      console.log('no')
     }
   }
   prevHoverView = hitView

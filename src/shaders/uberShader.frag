@@ -36,7 +36,9 @@ precision highp float;
 #endif
 
 #ifdef SUPPORTS_HOVER_MASK_FX
+  uniform sampler2D u_maskTexture2;
   uniform float u_hoverMixFactor;
+  uniform vec4 u_uvOffsetSizesHoverMask;
 #endif
 
 in vec4 vNormal;
@@ -53,15 +55,13 @@ const float FACE_STEP2 = FACE_STEP * 2.0;
 #include utils/blur-9-taps;
 #include utils/blur-13-taps;
 #include utils/linearize-depth;
-
-vec4 blendNormal(vec4 base, vec4 blend, float opacity) {
-	return (blend * opacity + base * (1.0 - opacity));
-}
+#include utils/blend-normal;
  
 void main () {
   vec2 borderUV = vUv;
   vec2 uv = vUv;
   vec2 maskUV = vUv;
+  vec2 hoverMaskUV = vUv;
 
   #ifdef IS_CUBE
     if (vUv.x > FACE_STEP && vUv.x < FACE_STEP2) {
@@ -81,11 +81,19 @@ void main () {
       uv
     );
     #ifdef USE_MASK_TEXTURE
-      maskUV = uvTransformBackgroundCover(vUv, vec2(128.0), vec2(MESH_WIDTH, MESH_HEIGHT));
+      maskUV = uvTransformBackgroundCover(vUv, vec2(64.0), vec2(MESH_WIDTH, MESH_HEIGHT));
       maskUV = mix(
         u_uvOffsetSizesMask.xy,
         u_uvOffsetSizesMask.zw,
         maskUV
+      );
+    #endif
+    #ifdef SUPPORTS_HOVER_MASK_FX
+      hoverMaskUV = uvTransformBackgroundCover(vUv, vec2(128.0), vec2(MESH_WIDTH, MESH_HEIGHT));
+      hoverMaskUV = mix(
+        u_uvOffsetSizesHoverMask.xy,
+        u_uvOffsetSizesHoverMask.zw,
+        hoverMaskUV
       );
     #endif
   #endif
@@ -126,8 +134,9 @@ void main () {
             vec4 texColor = texture(u_diffuse, uv);
             finalColor = mix(vec4(0.0), texColor, 1.0 - step(u_revealMixFactor, maskColor.r));
             #ifdef SUPPORTS_HOVER_MASK_FX
+              vec4 maskColor2 = texture(u_maskTexture2, hoverMaskUV);
               vec4 hoverColor = vec4(vec3(1.0) - texColor.rgb, texColor.a);
-              hoverColor = mix(vec4(0.0), hoverColor, 1.0 - step(u_hoverMixFactor, maskColor.r));
+              hoverColor = mix(vec4(0.0), hoverColor, 1.0 - step(u_hoverMixFactor, maskColor2.r));
               // hoverColor = hoverColor;
               finalColor.rgb = blendNormal(finalColor, hoverColor, u_hoverMixFactor).rgb;
             #endif

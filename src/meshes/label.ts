@@ -4,11 +4,13 @@ import { LabelProps } from '../interfaces'
 import { promisifiedLoadImage } from '../helpers'
 
 import labelTransitionImageURL from '../assets/label-transition.png'
+import labelTransitionImageURL2 from '../assets/label-transition2.png'
 
 export default class Label extends Quad {
   label: string
   texture: WebGLTexture | null = null
   maskTexture: WebGLTexture | null = null
+  maskTexture2: WebGLTexture | null = null
   transparent = false
   supportHover = false
 
@@ -56,7 +58,6 @@ export default class Label extends Quad {
   }
 
   set hoverFactor(v: number) {
-    console.log(this.supportHover)
     if (!this.supportHover) {
       return
     }
@@ -76,7 +77,7 @@ export default class Label extends Quad {
       supportHover = false,
     }: LabelProps,
   ) {
-    let defines: { [key: string]: ShaderDefineValue } = {
+    const defines: { [key: string]: ShaderDefineValue } = {
       MESH_WIDTH: geometry.width,
       MESH_HEIGHT: geometry.height,
       USE_SHADING: true,
@@ -87,10 +88,7 @@ export default class Label extends Quad {
       USE_MASK_TEXTURE: true,
     }
     if (supportHover) {
-      defines = {
-        ...defines,
-        SUPPORTS_HOVER_MASK_FX: true,
-      }
+      defines.SUPPORTS_HOVER_MASK_FX = true
     }
     super(gl, {
       geometry,
@@ -106,22 +104,42 @@ export default class Label extends Quad {
 
     const texManager = TextureAtlas.getInstance()
 
-    promisifiedLoadImage(labelTransitionImageURL).then((transitionImage) => {
+    const packMaskTextureToAtlas = (
+      transitionImage: HTMLImageElement,
+    ): Promise<[Float32Array, WebGLTexture]> => {
       try {
-        texManager.pack(labelTransitionImageURL, transitionImage)
+        texManager.pack(transitionImage.src, transitionImage)
       } catch (err) {
         // ...
       }
-      const [uvs, texture] = texManager.getUv2(labelTransitionImageURL)
+      const [uvs, texture] = texManager.getUv2(transitionImage.src)
       if (!uvs) {
         throw new Error('could not allocate label mask texture')
       }
-      this.maskTexture = texture
-      this.updateUniform(
-        'u_uvOffsetSizesMask',
-        new Float32Array([uvs[0], uvs[1], uvs[4], uvs[5]]),
-      )
-    })
+      return Promise.resolve([uvs, texture])
+    }
+
+    promisifiedLoadImage(labelTransitionImageURL)
+      .then(packMaskTextureToAtlas)
+      .then(([uvs, texture]) => {
+        this.maskTexture = texture
+        this.updateUniform(
+          'u_uvOffsetSizesMask',
+          new Float32Array([uvs[0], uvs[1], uvs[4], uvs[5]]),
+        )
+      })
+
+    if (supportHover) {
+      promisifiedLoadImage(labelTransitionImageURL2)
+        .then(packMaskTextureToAtlas)
+        .then(([uvs, texture]) => {
+          this.maskTexture2 = texture
+          this.updateUniform(
+            'u_uvOffsetSizesHoverMask',
+            new Float32Array([uvs[0], uvs[1], uvs[4], uvs[5]]),
+          )
+        })
+    }
 
     const texHeight = texWidth / aspect
     const atlasID = `label-${label}`
@@ -157,6 +175,15 @@ export default class Label extends Quad {
         type: gl.FLOAT,
         value: 0,
       })
+
+      this.setUniform('u_uvOffsetSizesHoverMask', {
+        type: gl.FLOAT_VEC4,
+      })
+
+      this.setUniform('u_maskTexture2', {
+        type: gl.INT,
+        value: 2,
+      })
     }
     this.setUniform('u_uvOffsetSizes', {
       type: gl.FLOAT_VEC4,
@@ -182,12 +209,17 @@ export default class Label extends Quad {
     this.preRender(cameraUBOBindPoint)
 
     const gl = this.gl
-    gl.activeTexture(gl.TEXTURE0)
 
+    gl.activeTexture(gl.TEXTURE0)
     gl.bindTexture(gl.TEXTURE_2D, this.texture)
 
     gl.activeTexture(gl.TEXTURE1)
     gl.bindTexture(gl.TEXTURE_2D, this.maskTexture)
+
+    if (this.supportHover) {
+      gl.activeTexture(gl.TEXTURE2)
+      gl.bindTexture(gl.TEXTURE_2D, this.maskTexture2)
+    }
 
     if (this.transparent) {
       gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)

@@ -41,7 +41,7 @@ export default class View extends SceneNode {
   static ROTATION_X_AXIS_ON_CLOSE = Math.PI * 0.1
   static DEFORM_ANGLE_ON_OPEN = Math.PI * 0.5
   static DEFORM_ANGLE_ON_CLOSE = Math.PI * -0.4
-  static FADED_OUT_FACTOR = 0.5
+  static FADED_OUT_FACTOR = 0.2
   static MESH_WRAPPER_NAME = 'mesh-wrapper'
 
   set visible(v: boolean) {
@@ -84,7 +84,7 @@ export default class View extends SceneNode {
     }
   }
 
-  set hoverFactor(v: number) {
+  set openHoverFactor(v: number) {
     if (this.openLabelNode) {
       this.openLabelNode.hoverFactor = v
     }
