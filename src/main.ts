@@ -1,6 +1,10 @@
 import { vec3 } from 'gl-matrix'
 import * as dat from 'dat.gui'
-import { CameraTransitionProps, Project } from './interfaces'
+import {
+  CameraTransitionProps,
+  Project,
+  RowTransitionProps,
+} from './interfaces'
 import store from './store'
 
 import {
@@ -91,10 +95,10 @@ let oldTime = 0
 let prevView!: View
 let hitView!: View
 let prevHoverView!: View
-let oldActiveItemUID: string
 let openButtonHoverTransition = false
 let closeButtonTextureCanvas: HTMLCanvasElement
 
+const activeTweens: Map<string, Tween> = new Map()
 const opaqueObjects: SceneNode[] = []
 const transparentObjects: SceneNode[] = []
 const debugLines: Line[] = []
@@ -339,60 +343,42 @@ fetch(API_ENDPOINT)
     positionNodeWithinLevel(boxesRootNode, 0, -1)
   })
 
-store.subscribe(() => {
-  const {
-    ui: { activeItemUID },
-  } = store.getState()
-  if (hitView && activeItemUID !== oldActiveItemUID) {
-    let parentNode = hitView.parentNode
-    let urlPath = hitView.project ? hitView.project.uid : hitView.name
-    while (parentNode) {
-      const parent = parentNode as View
-      const fragment = parent.project ? parent.project.uid : parent.name
+// store.subscribe(() => {
+//   const {
+//     ui: { activeItemUID },
+//   } = store.getState()
+//   if (hitView && activeItemUID !== oldActiveItemUID) {
+//     let parentNode = hitView.parentNode
+//     let urlPath = hitView.project ? hitView.project.uid : hitView.name
+//     while (parentNode) {
+//       const parent = parentNode as View
+//       const fragment = parent.project ? parent.project.uid : parent.name
 
-      parentNode = parentNode.parentNode
-      if (!fragment) {
-        continue
-      }
-      urlPath = `${fragment}/${urlPath}`
-    }
-    if (urlPath) {
-      document.title = `${hitView.name} | ${BASE_PAGE_TITLE}`
-      history.replaceState(
-        {},
-        '',
-        `${location.origin}/${urlPath.toLowerCase()}`,
-      )
-    } else {
-      document.title = BASE_PAGE_TITLE
-      history.replaceState({}, '', location.origin)
-    }
+//       parentNode = parentNode.parentNode
+//       if (!fragment) {
+//         continue
+//       }
+//       urlPath = `${fragment}/${urlPath}`
+//     }
+//     if (urlPath) {
+//       document.title = `${hitView.name} | ${BASE_PAGE_TITLE}`
+//       const newURL = `/${urlPath.toLowerCase()}`
 
-    oldActiveItemUID = activeItemUID
-  }
-})
+//       history.pushState({}, '', newURL)
+//     } else {
+//       document.title = BASE_PAGE_TITLE
+//       console.log('1 pushState')
+//       history.pushState({}, '', '/')
+//     }
+//   }
+//   oldActiveItemUID = activeItemUID
+// })
+
 document.body.addEventListener('mousemove', onMouseMove)
 document.body.addEventListener('click', onMouseClick)
 // document.body.addEventListener('touchstart', (e) => e.preventDefault())
 // document.body.addEventListener('touchmove', (e) => e.preventDefault())
 requestAnimationFrame(updateFrame)
-
-// let oldMX = 0
-// let oldMY = 0
-// store.subscribe(() => {
-//   const state = store.getState().ui
-//   const mouseXChanged = Math.abs(state.mousePos[0] - oldMX) > 100
-//   const mouseYChanged = Math.abs(state.mousePos[1] - oldMY) > 100
-//   if (mouseXChanged) {
-//     oldMX = state.mousePos[0]
-//   }
-//   if (mouseYChanged) {
-//     oldMY = state.mousePos[1]
-//   }
-//   if (mouseXChanged && mouseYChanged) {
-//     console.log(state)
-//   }
-// })
 
 function onMouseMove(e: MouseEvent) {
   store.dispatch(setMousePos([e.pageX, e.pageY]))
@@ -453,19 +439,6 @@ async function onMouseClick(e: MouseEvent) {
         oldView.metaLabelsRevealFactor = 1 - v
       },
     })
-    // const siblings = oldView?.siblings
-    // if (siblings) {
-    //   const sibling = oldView.siblings
-    //   promisifiedTween({
-    //     durationMS: 500,
-    //     onUpdate: (v) => {
-    //       for (let i = 0; i < sibling.length; i++) {
-    //         const view = siblings[i] as View
-    //         view.metaLabelsRevealFactor = 1 - v
-    //       }
-    //     },
-    //   })
-    // }
   }
 
   if (!hitView) {
@@ -484,7 +457,10 @@ async function onMouseClick(e: MouseEvent) {
     store.dispatch(setActiveItemUID(oldView.uid))
     hitView = oldView.parentNode as View
 
-    toggleChildrenRowVisibility(oldView, false)
+    toggleChildrenRowVisibility({
+      node: oldView,
+      visible: false,
+    })
     store.dispatch(setActiveItemUID(oldView.parentNode.uid))
     // store.dispatch(setIsCurrentlyTransitionViews(false))
 
@@ -500,7 +476,7 @@ async function onMouseClick(e: MouseEvent) {
     const newY =
       levelIndex === 0
         ? 0
-        : -rowHeight / 2 - LAYOUT_LEVEL_Y_OFFSET * levelIndex + CUBE_HEIGHT / 2
+        : -rowHeight / 2 - LAYOUT_LEVEL_Y_OFFSET * levelIndex + CUBE_HEIGHT
     const newZ = 8 + levelIndex * CAMERA_LEVEL_Z_OFFSET
 
     // debugger
@@ -528,7 +504,7 @@ async function onMouseClick(e: MouseEvent) {
       store.dispatch(setIsCurrentlyTransitionViews(false))
       return
     }
-    console.log('hit')
+    // console.log('hit')
     hitView.open = true
     if (oldView) {
       oldView.open = false
@@ -586,26 +562,42 @@ async function onMouseClick(e: MouseEvent) {
 
   if (levelDiff === 0) {
     hitView.open = hitView === oldView ? !hitView.open : true
+
     if (hitView === oldView) {
-      toggleChildrenRowVisibility(hitView, hitView.open)
+      toggleChildrenRowVisibility({
+        node: hitView,
+        visible: hitView.open,
+      })
     } else {
       hitView.open = true
       if (oldView) {
         if (oldView.open) {
-          await toggleChildrenRowVisibility(oldView, false)
+          await toggleChildrenRowVisibility({
+            node: oldView,
+            visible: false,
+          })
         } else {
-          toggleChildrenRowVisibility(oldView, false)
+          toggleChildrenRowVisibility({
+            node: oldView,
+            visible: false,
+          })
         }
         oldView.open = false
       }
-      toggleChildrenRowVisibility(hitView, true)
+      toggleChildrenRowVisibility({
+        node: hitView,
+        visible: true,
+      })
     }
   } else if (levelDiff > 0) {
     hitView.open = true
     if (prevView) {
       prevView.open = false
     }
-    toggleChildrenRowVisibility(hitView, hitView.open)
+    toggleChildrenRowVisibility({
+      node: hitView,
+      visible: hitView.open,
+    })
   } else if (levelDiff < 0) {
     hitView.open = !!hitView.findChild((child) => child === prevView)
     if (prevView) {
@@ -622,13 +614,19 @@ async function onMouseClick(e: MouseEvent) {
       }
       viewsToClose.push(view)
     })
-    await toggleChildrenRowVisibility(viewsToClose, false)
+    await toggleChildrenRowVisibility({
+      node: viewsToClose,
+      visible: false,
+    })
     const prevSameLevelParent = oldView?.findParent(
       (parent) => parent.levelIndex === hitView.levelIndex,
     )
-    toggleChildrenRowVisibility(hitView, hitView !== prevSameLevelParent)
+    toggleChildrenRowVisibility({
+      node: hitView,
+      visible: hitView !== prevSameLevelParent,
+    })
   }
-  console.log('----- end')
+  // console.log('----- end')
 
   const levelIndex = hitView.levelIndex - 2 + (hitView.open ? 1 : 0)
   const rowHeight = hitView.open
@@ -639,10 +637,10 @@ async function onMouseClick(e: MouseEvent) {
   const newY =
     levelIndex === 0
       ? 0
-      : -rowHeight / 2 - LAYOUT_LEVEL_Y_OFFSET * levelIndex + CUBE_HEIGHT / 2
+      : -rowHeight / 2 - LAYOUT_LEVEL_Y_OFFSET * levelIndex + CUBE_HEIGHT
   const newZ = 8 + levelIndex * CAMERA_LEVEL_Z_OFFSET
 
-  console.log(levelIndex, hitView.open)
+  // console.log(levelIndex, hitView.open)
 
   closeButton.fadeFactor = 1
   closeButton.setPosition([
@@ -672,6 +670,8 @@ function updateFrame(ts: DOMHighResTimeStamp) {
   oldTime = ts
 
   requestAnimationFrame(updateFrame)
+
+  // console.log(activeTweens)
 
   // console.log(perspectiveCamera.position, perspectiveCamera.lookAt)
 
@@ -813,53 +813,14 @@ function updateFrame(ts: DOMHighResTimeStamp) {
 
     gl.enable(gl.CULL_FACE)
     gl.cullFace(gl.FRONT)
-    // gl.disable(gl.DEPTH_TEST)
     hoverCube.updateWorldMatrix()
     hoverCube.render()
-
     gl.disable(gl.CULL_FACE)
-    // gl.enable(gl.DEPTH_TEST)
 
     // closeButton.render()
   }
 
   debugLines.forEach((rayLine) => rayLine.render())
-
-  // let writeBuffer = fboBlurPing
-  // let readBuffer = fboBlurPong
-  // const blurIterations = OPTIONS.blurIterations
-
-  // for (let i = 0; i < blurIterations; i++) {
-  //   gl.bindFramebuffer(gl.FRAMEBUFFER, writeBuffer.framebuffer)
-  //   gl.clearColor(0.1, 0.1, 0.1, 1.0)
-  //   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
-
-  //   const radius = blurIterations - i - 1
-  //   blurDirection[0] = i % 2 === 0 ? radius : 0
-  //   blurDirection[1] = i % 2 === 0 ? 0 : radius
-
-  //   gl.activeTexture(gl.TEXTURE0)
-  //   gl.bindTexture(
-  //     gl.TEXTURE_2D,
-  //     i === 0 ? fboCopy.texture : readBuffer.texture,
-  //   )
-  //   blurQuad.updateUniform('u_blurDirection', blurDirection)
-  //   blurQuad.render(1)
-
-  //   const t = writeBuffer
-  //   writeBuffer = readBuffer
-  //   readBuffer = t
-  // }
-
-  // gl.bindFramebuffer(gl.FRAMEBUFFER, null)
-  // gl.activeTexture(gl.TEXTURE0)
-  // gl.bindTexture(gl.TEXTURE_2D, fboCopy.texture)
-  // gl.activeTexture(gl.TEXTURE1)
-  // gl.bindTexture(gl.TEXTURE_2D, writeBuffer.texture)
-  // gl.activeTexture(gl.TEXTURE2)
-  // gl.bindTexture(gl.TEXTURE_2D, fboCopy.depthTexture!)
-
-  // dofQuad.render(1)
 }
 
 function getHoveredSceneNode(
@@ -886,12 +847,12 @@ function getHoveredSceneNode(
   return [hitView, isOpenLink]
 }
 
-async function toggleChildrenRowVisibility(
-  node: View | View[],
-  visible: boolean,
-  durationMS: number = TRANSITION_ROW_DURATION,
-  easeName: easeType = TRANSITION_ROW_EASE,
-) {
+async function toggleChildrenRowVisibility({
+  node,
+  visible,
+  durationMS = TRANSITION_ROW_DURATION,
+  easeName = TRANSITION_ROW_EASE,
+}: RowTransitionProps) {
   const views = Array.isArray(node) ? node : node.children
   for (let i = 0; i < views.length; i++) {
     const child = views[i]
@@ -901,21 +862,33 @@ async function toggleChildrenRowVisibility(
     }
   }
   return await Promise.all(
-    views.map((child, i) =>
-      promisifiedTween({
-        durationMS,
-        delayMS: TRANSITION_ROW_DELAY + (visible ? i * 50 : 0),
-        easeName,
-        onUpdate: (v) => {
-          child.visibilityTweenFactor = visible ? v : 1 - v
-        },
-        onComplete: () => {
-          if (!visible) {
-            views[i].visible = false
-          }
-        },
-      }),
-    ),
+    views.map((child, i): Promise<null> => {
+      return new Promise((resolve) => {
+        const childTweenID = child.uid
+        let tween: Tween | undefined
+        if ((tween = activeTweens.get(childTweenID))) {
+          tween.stop()
+          activeTweens.delete(childTweenID)
+        }
+        tween = new Tween({
+          durationMS,
+          delayMS: TRANSITION_ROW_DELAY + (visible ? i * 50 : 0),
+          easeName,
+          onUpdate: (v) => {
+            child.visibilityTweenFactor = visible ? v : 1 - v
+          },
+          onComplete: () => {
+            if (!visible) {
+              views[i].visible = false
+            }
+            activeTweens.delete(childTweenID)
+
+            resolve(null)
+          },
+        }).start()
+        activeTweens.set(childTweenID, tween)
+      })
+    }),
   )
 }
 
@@ -967,26 +940,6 @@ async function tweenCameraToPosition({
   ])
 
   // return
-}
-
-async function fadeInFadedOutView(
-  rootNode: SceneNode,
-  includeActive = false,
-  durationMS = 500,
-  easeName: easeType = 'exp_In',
-) {
-  return promisifiedTween({
-    durationMS,
-    easeName,
-    onUpdate: (v) => {
-      traverseViewNodes(rootNode, (child) => {
-        if (!includeActive && child === prevView) {
-          return
-        }
-        child.fadeFactor = mapNumberRange(v, 0, 1, View.FADED_OUT_FACTOR, 1)
-      })
-    },
-  })
 }
 
 function makeCloseButtonTexture() {

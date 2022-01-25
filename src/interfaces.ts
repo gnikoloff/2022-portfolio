@@ -7,6 +7,7 @@ import {
   ShaderDefineValue,
   UniformValue,
 } from './lib/hwoa-rang-gl2'
+import View from './view'
 
 export interface UBOVariable {
   offset: number
@@ -82,6 +83,13 @@ export interface SingleViewProps {
 
 export interface ActionPayload extends Action {
   payload: any
+}
+
+export interface RowTransitionProps {
+  node: View | View[]
+  visible: boolean
+  durationMS?: number
+  easeName?: easeType
 }
 
 export interface CameraTransitionProps {
