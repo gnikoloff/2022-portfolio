@@ -4,7 +4,6 @@ import { Drawable, TextureAtlas } from '../lib/hwoa-rang-gl2'
 import { BoundingBox } from '../lib/hwoa-rang-math'
 
 import { CubeProps } from '../interfaces'
-import { CUBE_HEIGHT, CUBE_WIDTH } from '../constants'
 
 import VERTEX_SHADER_SRC from '../shaders/uberShader.vert'
 import FRAGMENT_SHADER_SRC from '../shaders/uberShader.frag'
@@ -14,6 +13,8 @@ export default class Cube extends Drawable {
   textureAtlas!: WebGLTexture
 
   posterLoaded = false
+
+  #fadeFactor: number
 
   get AABB(): BoundingBox {
     const min = vec3.clone(this.boundingBox.min)
@@ -27,8 +28,13 @@ export default class Cube extends Drawable {
     this.updateUniform('u_deformAngle', v)
   }
 
+  get fadeFactor() {
+    return this.#fadeFactor
+  }
+
   set fadeFactor(v: number) {
     this.updateUniform('u_fadeMixFactor', v)
+    this.#fadeFactor = v
   }
 
   constructor(
@@ -42,8 +48,8 @@ export default class Cube extends Drawable {
       USE_TEXTURE: true,
       USE_UV_TRANSFORM: true,
       USE_BACKGROUND_SIZE_COVER: true,
-      MESH_WIDTH: CUBE_WIDTH,
-      MESH_HEIGHT: CUBE_HEIGHT,
+      MESH_WIDTH: geometry.width,
+      MESH_HEIGHT: geometry.height,
       IS_CUBE: true,
       SUPPORTS_FADING: true,
     }
@@ -67,13 +73,6 @@ export default class Cube extends Drawable {
       min: vec3.fromValues(-width / 2, -height / 2, -depth / 2),
       max: vec3.fromValues(width / 2, height / 2, depth / 2),
     }
-
-    // console.log('------------------------------------')
-    // const numUniforms = gl.getProgramParameter(this.program, gl.ACTIVE_UNIFORMS)
-    // for (let i = 0; i < numUniforms; ++i) {
-    //   const info = gl.getActiveUniform(this.program, i)
-    //   console.log('name:', info.name, 'type:', info.type, 'size:', info.size)
-    // }
 
     this.setUniform('u_deformAngle', {
       type: gl.FLOAT,
@@ -177,6 +176,9 @@ export default class Cube extends Drawable {
   }
 
   render(): void {
+    if (!this._visible) {
+      return
+    }
     const gl = this.gl
     gl.uniformBlockBinding(this.program, this.cameraUBOIndex, 0)
     gl.useProgram(this.program)

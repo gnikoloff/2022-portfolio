@@ -20,11 +20,14 @@ import { SceneNode } from './lib/hwoa-rang-gl2'
  * @returns {Project[]}
  */
 export const transformProjectEntries = (entries: any): Project[] => {
+  console.log(entries)
   return entries.map((entry: any) => ({
     uid: entry.uid,
     title: entry.data.project_title[0].text,
     type: entry.data.project_type[0].text,
     year: parseInt(entry.data.project_year[0].text, 10),
+    url: entry.data.project_link?.url,
+    tech: entry.data.project_tech[0].text,
     date: {
       first: entry.first_publication_date,
       last: entry.last_publication_date,
@@ -45,15 +48,19 @@ export const transformProjectEntries = (entries: any): Project[] => {
 export const sortProjectEntriesByYear = (
   projectEntries: Project[],
 ): ProjectGroup => {
-  return [...projectEntries].reduce((acc: ProjectGroup, item) => {
-    const key = item.year
-    if (!acc[key]) {
-      acc[key] = [item]
-    } else {
-      acc[key] = [...acc[key], item]
-    }
-    return acc
-  }, {})
+  return (
+    [...projectEntries]
+      // .sort((a, b) => a.year - b.year)
+      .reduce((acc: ProjectGroup, item) => {
+        const key = item.year
+        if (!acc[key]) {
+          acc[key] = [item]
+        } else {
+          acc[key] = [...acc[key], item]
+        }
+        return acc
+      }, {})
+  )
 }
 
 /**
@@ -97,9 +104,9 @@ export const getXYZForViewIdxWithinLevel = (
 export const getChildrenRowTotalHeight = (childrenCount: number) => {
   const rowsCount = Math.ceil(childrenCount / LAYOUT_ITEMS_PER_ROW)
   const stepX = LAYOUT_COLUMN_MAX_WIDTH / LAYOUT_ITEMS_PER_ROW
-  const padding = ((stepX / CUBE_WIDTH) * 1.4) / rowsCount
-  const rowHeight = rowsCount * CUBE_HEIGHT * (rowsCount > 1 ? padding : 1)
-  console.log({ rowsCount, rowHeight })
+  const padding = (stepX / CUBE_WIDTH) * 1.4
+  const rowHeight = rowsCount * CUBE_HEIGHT * padding + CUBE_HEIGHT / 2
+  // debugger
   return rowHeight
 }
 

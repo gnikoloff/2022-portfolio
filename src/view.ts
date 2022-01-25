@@ -3,13 +3,17 @@ import { vec3 } from 'gl-matrix'
 import { SceneNode } from './lib/hwoa-rang-gl2'
 import {
   intersectRayWithAABB,
-  intersectRayWithQuad,
+  // intersectRayWithQuad,
 } from './lib/hwoa-rang-math'
 import {
   CUBE_DEPTH,
   CUBE_HEIGHT,
+  CUBE_WIDTH,
   LABEL_MARGIN_Y,
   LABEL_MARGIN_Z,
+  OPEN_BUTTON_MARGIN_Y,
+  OPEN_BUTTON_MARGIN_Z,
+  OPEN_BUTTON_WIDTH,
 } from './constants'
 
 import { promisifiedLoadImage } from './helpers'
@@ -18,13 +22,15 @@ import Cube from './meshes/cube'
 import Label from './meshes/label'
 
 import { Project, ViewProps } from './interfaces'
+import { intersectRayWithQuad } from './lib/hwoa-rang-math/src'
 
 export default class View extends SceneNode {
-  visible = false
   open = false
 
   projectThumbNode: Cube
   projectLabelNode?: Label
+  projectRoleNode?: Label
+  openLabelNode?: Label
 
   project?: Project
   externalURL?: string
@@ -35,8 +41,18 @@ export default class View extends SceneNode {
   static ROTATION_X_AXIS_ON_CLOSE = Math.PI * 0.1
   static DEFORM_ANGLE_ON_OPEN = Math.PI * 0.5
   static DEFORM_ANGLE_ON_CLOSE = Math.PI * -0.4
-  static FADED_OUT_FACTOR = 0.1
+  static FADED_OUT_FACTOR = 0.5
   static MESH_WRAPPER_NAME = 'mesh-wrapper'
+
+  set visible(v: boolean) {
+    this._visible = v
+    const viewWrapper = this.findChild(
+      (child) => child.name === View.MESH_WRAPPER_NAME,
+    )
+    viewWrapper?.traverse((child) => {
+      child.visible = v
+    })
+  }
 
   get children(): View[] {
     return (this._children as View[]).filter(
@@ -51,6 +67,10 @@ export default class View extends SceneNode {
     return this.parentNode.children
   }
 
+  get fadeFactor() {
+    return this.projectThumbNode.fadeFactor
+  }
+
   set fadeFactor(v: number) {
     this.projectThumbNode.fadeFactor = v
     if (this.projectLabelNode) {
@@ -61,6 +81,21 @@ export default class View extends SceneNode {
   set labelRevealFactor(v: number) {
     if (this.projectLabelNode) {
       this.projectLabelNode.revealMixFactor = v
+    }
+  }
+
+  set hoverFactor(v: number) {
+    if (this.openLabelNode) {
+      this.openLabelNode.hoverFactor = v
+    }
+  }
+
+  set metaLabelsRevealFactor(v: number) {
+    if (this.projectRoleNode) {
+      this.projectRoleNode.revealMixFactor = v
+    }
+    if (this.openLabelNode) {
+      this.openLabelNode.revealMixFactor = v
     }
   }
 
@@ -89,13 +124,18 @@ export default class View extends SceneNode {
     this.updateWorldMatrix()
   }
 
-  testRayIntersection(rayStart: vec3, rayDirection: vec3): number | null {
-    if (!this.visible) {
+  testRayIntersection(
+    rayStart: vec3,
+    rayDirection: vec3,
+  ): [number | null, boolean] | null {
+    if (!this._visible) {
       return null
     }
 
     const boxAABB = this.projectThumbNode.AABB
     let rayTime: number | null = null
+    let isOpenLink = false
+
     const aabbIntersectionTime = intersectRayWithAABB(
       rayStart,
       rayDirection,
@@ -111,12 +151,31 @@ export default class View extends SceneNode {
         rayDirection,
         quadCorners,
       )
+
       if (labelIntersection) {
         const [time] = labelIntersection
         rayTime = time
       }
     }
-    return rayTime
+
+    if (this.open) {
+      if (this.openLabelNode) {
+        const quadCorners = this.openLabelNode.cornersInWorldSpace
+        const labelIntersection = intersectRayWithQuad(
+          rayStart,
+          rayDirection,
+          quadCorners,
+        )
+
+        if (labelIntersection) {
+          const [time] = labelIntersection
+          rayTime = time
+          isOpenLink = true
+        }
+      }
+    }
+
+    return [rayTime, isOpenLink]
   }
 
   constructor(
@@ -124,6 +183,7 @@ export default class View extends SceneNode {
     {
       cubeGeometry,
       labelGeometry,
+      openButtonGeometry,
       name,
       project,
       hasLabel = false,
@@ -131,6 +191,7 @@ export default class View extends SceneNode {
     }: ViewProps,
   ) {
     super(name)
+    this.gl = gl
     this.project = project
     this.externalURL = externalURL
 
@@ -144,14 +205,59 @@ export default class View extends SceneNode {
       this.projectLabelNode = new Label(gl, {
         geometry: labelGeometry,
         label: name,
+        // texWidth: 400,
+        fontSize: 50,
+        transparent: true,
       })
-      const { height } = labelGeometry
+      this.projectLabelNode.visible = false
+      this.projectLabelNode.setParent(meshWrapperNode)
       this.projectLabelNode.setPosition([
         0,
-        -CUBE_HEIGHT / 2 - height / 2 - LABEL_MARGIN_Y,
+        -CUBE_HEIGHT / 2 - labelGeometry.height / 2 - LABEL_MARGIN_Y,
         CUBE_DEPTH / 2 + LABEL_MARGIN_Z,
       ])
-      this.projectLabelNode.setParent(meshWrapperNode)
+    }
+
+    if (project) {
+      this.projectRoleNode = new Label(gl, {
+        geometry: labelGeometry,
+        label: project.tech || '',
+        // texWidth: 400,
+        fontSize: 50,
+        textColor: '#888',
+        transparent: true,
+      })
+      this.projectRoleNode.visible = false
+      this.projectRoleNode.setPosition([
+        0,
+        CUBE_HEIGHT / 2 + labelGeometry.height / 2 + LABEL_MARGIN_Y,
+        CUBE_DEPTH / 2 + LABEL_MARGIN_Z,
+      ])
+      this.projectRoleNode.revealMixFactor = 0
+      this.projectRoleNode.setParent(meshWrapperNode)
+
+      this.openLabelNode = new Label(gl, {
+        geometry: openButtonGeometry,
+        supportHover: true,
+        transparent: true,
+        label: 'OPEN',
+        texWidth: 120,
+        fontSize: 30,
+        textAlign: 'center',
+        textColor: '#aaa',
+      })
+      this.openLabelNode.visible = false
+      this.openLabelNode.revealMixFactor = 0
+
+      this.openLabelNode.setPosition([
+        CUBE_WIDTH / 2 - OPEN_BUTTON_WIDTH / 2 - 0.1,
+        -CUBE_HEIGHT / 2 -
+          openButtonGeometry.height / 2 -
+          OPEN_BUTTON_MARGIN_Y -
+          0.2,
+        CUBE_DEPTH / 2 + OPEN_BUTTON_MARGIN_Z + 0.1,
+      ])
+      this.openLabelNode.setParent(meshWrapperNode)
     }
   }
 
@@ -177,9 +283,12 @@ export default class View extends SceneNode {
   }
 
   render(): void {
-    if (!this.visible) {
+    if (!this._visible) {
       return
     }
-    this._children.forEach((child) => child.render())
+    for (let i = 0; i < this._children.length; i++) {
+      const child = this._children[i]
+      child.render()
+    }
   }
 }

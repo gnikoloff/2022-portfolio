@@ -49,6 +49,8 @@ void main () {
   #endif
 
   gl_Position = projectionViewMatrix * worldMatrix * position;
+
+  // gl_Position.xy += vec2(1.0, 1.0) * vec2(320.0, 240.0) * 0.5;
   vUv = aUv;
 
   #ifdef USE_SHADING

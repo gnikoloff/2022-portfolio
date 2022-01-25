@@ -1,5 +1,6 @@
 import { vec4 } from 'gl-matrix'
 import { Action } from 'redux'
+import { easeType } from './lib/hwoa-rang-anim/dist'
 import {
   BoxGeometry,
   PlaneGeometry,
@@ -26,6 +27,8 @@ interface ProjectImage {
 export interface Project {
   uid: string
   title: string
+  tech: string
+  url: string
   type: string
   year: number
   date: ProjectDate
@@ -46,6 +49,12 @@ export interface QuadProps {
 export interface LabelProps extends QuadProps {
   name?: string
   label: string
+  texWidth?: number
+  fontSize?: number
+  textAlign?: CanvasTextAlign
+  textColor?: string | CanvasGradient | CanvasPattern
+  transparent?: boolean
+  supportHover?: boolean
 }
 
 export interface CubeProps {
@@ -57,6 +66,7 @@ export interface CubeProps {
 export interface ViewProps {
   cubeGeometry: BoxGeometry
   labelGeometry: PlaneGeometry
+  openButtonGeometry: PlaneGeometry
   name: string
   project?: Project
   hasLabel?: boolean
@@ -72,4 +82,19 @@ export interface SingleViewProps {
 
 export interface ActionPayload extends Action {
   payload: any
+}
+
+export interface CameraTransitionProps {
+  newX: number
+  newY: number
+  newZ: number
+  positionDelayMS?: number
+  positionTweenDurationMS?: number
+  positionTweenEaseName?: easeType
+  newLookAtX?: number
+  newLookAtY?: number
+  newLookAtZ?: number
+  lookAtDelayMS?: number§
+  lookAtTweenDurationMS?: number
+  lookAtTweenEaseName?: easeType
 }

@@ -29,11 +29,14 @@ precision highp float;
   uniform vec2 u_blurDirection;
 #endif
 
-
 #ifdef USE_MASK_TEXTURE
   uniform sampler2D u_maskTexture;
   uniform vec4 u_uvOffsetSizesMask;
   uniform float u_revealMixFactor;
+#endif
+
+#ifdef SUPPORTS_HOVER_MASK_FX
+  uniform float u_hoverMixFactor;
 #endif
 
 in vec4 vNormal;
@@ -50,6 +53,10 @@ const float FACE_STEP2 = FACE_STEP * 2.0;
 #include utils/blur-9-taps;
 #include utils/blur-13-taps;
 #include utils/linearize-depth;
+
+vec4 blendNormal(vec4 base, vec4 blend, float opacity) {
+	return (blend * opacity + base * (1.0 - opacity));
+}
  
 void main () {
   vec2 borderUV = vUv;
@@ -117,7 +124,13 @@ void main () {
           #ifdef USE_MASK_TEXTURE
             vec4 maskColor = texture(u_maskTexture, maskUV);
             vec4 texColor = texture(u_diffuse, uv);
-            finalColor = vec4(mix(vec3(0.1), texColor.rgb, 1.0 - step(u_revealMixFactor, maskColor.r)), 1.0);
+            finalColor = mix(vec4(0.0), texColor, 1.0 - step(u_revealMixFactor, maskColor.r));
+            #ifdef SUPPORTS_HOVER_MASK_FX
+              vec4 hoverColor = vec4(vec3(1.0) - texColor.rgb, texColor.a);
+              hoverColor = mix(vec4(0.0), hoverColor, 1.0 - step(u_hoverMixFactor, maskColor.r));
+              // hoverColor = hoverColor;
+              finalColor.rgb = blendNormal(finalColor, hoverColor, u_hoverMixFactor).rgb;
+            #endif
           #else
             finalColor = texture(u_diffuse, uv, -0.5);
           #endif

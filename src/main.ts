@@ -1,6 +1,6 @@
 import { vec3 } from 'gl-matrix'
 import * as dat from 'dat.gui'
-import { Project } from './interfaces'
+import { CameraTransitionProps, Project } from './interfaces'
 import store from './store'
 
 import {
@@ -39,6 +39,7 @@ import {
   mapNumberRange,
   deg2Rad,
   projectMouseToWorldSpace,
+  clamp,
 } from './lib/hwoa-rang-math'
 
 import { easeType, Tween } from './lib/hwoa-rang-anim'
@@ -55,12 +56,18 @@ import {
   CAMERA_FOCUS_OFFSET_Z,
   CAMERA_LEVEL_Z_OFFSET,
   CAMERA_NEAR,
+  CLOSE_BUTTON_DEPTH,
+  CLOSE_BUTTON_HEIGHT,
+  CLOSE_BUTTON_WIDTH,
   CUBE_DEPTH,
   CUBE_HEIGHT,
   CUBE_WIDTH,
   LABEL_HEIGHT,
   LABEL_WIDTH,
+  LAYOUT_COLUMN_MAX_WIDTH,
   LAYOUT_LEVEL_Y_OFFSET,
+  OPEN_BUTTON_HEIGHT,
+  OPEN_BUTTON_WIDTH,
   TRANSITION_CAMERA_DURATION,
   TRANSITION_CAMERA_EASE,
   TRANSITION_ROW_DELAY,
@@ -85,7 +92,12 @@ gui.add(OPTIONS, 'cameraFreeMode').onChange((v) => {
 
 let oldTime = 0
 let prevView!: View
+let prevHoverView!: View
+let openButtonHoverTransition = false
+let closeButtonTextureCanvas: HTMLCanvasElement
 
+const opaqueObjects: SceneNode[] = []
+const transparentObjects: SceneNode[] = []
 const debugLines: Line[] = []
 const rootNode = new SceneNode()
 const boxesRootNode = new SceneNode()
@@ -101,13 +113,14 @@ const gl: WebGL2RenderingContext = $canvas.getContext('webgl2')!
 // Init texture atlas
 TextureAtlas.debugMode = false
 TextureAtlas.gl = gl
+// TextureAtlas.textureFormat = gl.RGBA
 
 // Set up cameras
 const freeOrbitCamera = new PerspectiveCamera(
   deg2Rad(70),
   $canvas.width / $canvas.height,
   CAMERA_NEAR,
-  CAMERA_FAR,
+  1000,
 )
 freeOrbitCamera.position = [7, 8, 10]
 freeOrbitCamera.lookAt = [0, 0, 0]
@@ -118,13 +131,11 @@ const perspectiveCamera = new PerspectiveCamera(
   CAMERA_NEAR,
   CAMERA_FAR,
 )
-{
-  const camCenterY = -getChildrenRowTotalHeight(4) / 2
-  perspectiveCamera.position = [0, camCenterY, 8]
-  perspectiveCamera.lookAt = [0, camCenterY, 0]
-}
+perspectiveCamera.position = [0, 0, 8]
+perspectiveCamera.lookAt = [0, 0, 0]
+
 const cameraDebugger = new CameraDebug(gl, perspectiveCamera)
-const orbitController = new CameraController(freeOrbitCamera)
+const orbitController = new CameraController(freeOrbitCamera, $canvas)
 if (!OPTIONS.cameraFreeMode) {
   orbitController.pause()
 }
@@ -156,6 +167,16 @@ const labelGeometry = createPlane({
   widthSegments: 30,
   heightSegments: 20,
 })
+const openButtonGeometry = createPlane({
+  width: OPEN_BUTTON_WIDTH,
+  height: OPEN_BUTTON_HEIGHT,
+})
+const closeBtnGeometry = createBox({
+  width: CLOSE_BUTTON_WIDTH,
+  height: CLOSE_BUTTON_HEIGHT,
+  depth: CLOSE_BUTTON_DEPTH,
+  uvOffsetEachFace: true,
+})
 
 // Hover cube
 const hoverCube = new Cube(gl, {
@@ -165,6 +186,21 @@ const hoverCube = new Cube(gl, {
 hoverCube.setPosition([-1, 0, 0])
 hoverCube.setScale([1.05, 1.05, 1.05])
 hoverCube.setParent(rootNode)
+
+const closeButton = new Cube(gl, {
+  geometry: closeBtnGeometry,
+  name: 'close-btn',
+  // solidColor: [1, 0, 0, 1],
+})
+closeButton.fadeFactor = 0
+closeButton.setPosition([
+  LAYOUT_COLUMN_MAX_WIDTH / 2 - CLOSE_BUTTON_WIDTH,
+  CUBE_HEIGHT / 2 + CLOSE_BUTTON_HEIGHT * 1.25,
+  0,
+])
+closeButton.setParent(rootNode)
+closeButton.updateWorldMatrix()
+closeButton.displayPoster(makeCloseButtonTexture())
 
 // Get and set up UBOs that hold perspective & ortho cameras matrices
 const uboCameraBlockInfo = createUniformBlockInfo(
@@ -188,7 +224,11 @@ fetch(API_ENDPOINT)
   .then((projects) => projects.json())
   .then(transformProjectEntries)
   .then((projects: Project[]) => {
-    const viewGeoPartialProps = { cubeGeometry, labelGeometry }
+    const viewGeoPartialProps = {
+      cubeGeometry,
+      labelGeometry,
+      openButtonGeometry,
+    }
     const projectsByYear = sortProjectEntriesByYear(projects)
 
     const projectsNode = new View(gl, {
@@ -197,7 +237,7 @@ fetch(API_ENDPOINT)
     })
     projectsNode.loadThumbnail()
     projectsNode.visibilityTweenFactor = 1
-    projectsNode.visible = true
+
     projectsNode.setParent(boxesRootNode)
 
     const aboutNode = new View(gl, { ...viewGeoPartialProps, name: 'about' })
@@ -235,6 +275,7 @@ fetch(API_ENDPOINT)
     for (const [key, projects] of Object.entries(projectsByYear)) {
       const yearNode = new View(gl, { ...viewGeoPartialProps, name: key })
       yearNode.visibilityTweenFactor = 0
+      yearNode.visible = false
       yearNode.setParent(projectsNode)
       for (let i = 0; i < projects.length; i++) {
         const project = projects[i]
@@ -244,16 +285,18 @@ fetch(API_ENDPOINT)
           project,
           hasLabel: true,
         })
+        projectNode.visible = false
         projectNode.visibilityTweenFactor = 0
         projectNode.setParent(yearNode)
       }
     }
+    projectsNode.visible = true
 
     const positionNodeWithinLevel = (
       node: SceneNode,
       idx: number,
       levelIdx: number,
-    ) => {
+    ): vec3 => {
       const position = getXYZForViewIdxWithinLevel(idx, levelIdx)
       node.setPosition(position).updateWorldMatrix()
       levelIdx++
@@ -262,11 +305,28 @@ fetch(API_ENDPOINT)
         const child = node.children[i] as View
         positionNodeWithinLevel(child, i, levelIdx)
       }
+      return position
     }
 
     const childrenRowHeightByView: { [key: string]: number } = {}
 
     traverseViewNodes(rootNode, (view) => {
+      if (view instanceof View) {
+        if (view.projectRoleNode) {
+          transparentObjects.push(view.projectRoleNode as SceneNode)
+        }
+        if (view.openLabelNode) {
+          transparentObjects.push(view.openLabelNode as SceneNode)
+        }
+        if (view.projectLabelNode) {
+          transparentObjects.push(view.projectLabelNode)
+        }
+        opaqueObjects.push(view.projectThumbNode)
+      } else {
+        // if (!view.children.length) {
+        //   opaqueObjects.push(view)
+        // }
+      }
       if (view.project) {
         return
       }
@@ -274,6 +334,7 @@ fetch(API_ENDPOINT)
         view.children.length,
       )
     })
+
     store.dispatch(setChildrenRowHeight(childrenRowHeightByView))
 
     positionNodeWithinLevel(boxesRootNode, 0, -1)
@@ -327,17 +388,52 @@ async function onMouseClick(e: MouseEvent) {
     return
   }
 
+  const [hitView, isOpenLink] = getHoveredSceneNode(rayStart, rayDirection)
+
+  if (isOpenLink && hitView.project) {
+    open(hitView.project.url, '_blank')
+    return
+  }
   store.dispatch(setIsCurrentlyTransitionViews(true))
-  const hitView = getHoveredSceneNode(rayStart, rayDirection)
 
   const oldView = activeItemUID
     ? (boxesRootNode.findChild((child) => child.uid === activeItemUID) as View)
     : null
 
-  if (oldView?.project) {
+  if (oldView?.project && !hitView?.project) {
     traverseViewNodes(rootNode, (view) => {
-      view.fadeFactor = 1
+      if (view !== oldView) {
+        new Tween({
+          durationMS: 500,
+          onUpdate: (v) => {
+            view.fadeFactor = clamp(
+              mapNumberRange(v, 0, 1, View.FADED_OUT_FACTOR, 1),
+              View.FADED_OUT_FACTOR,
+              1,
+            )
+          },
+        }).start()
+      }
     })
+    promisifiedTween({
+      durationMS: 500,
+      onUpdate: (v) => {
+        oldView.metaLabelsRevealFactor = 1 - v
+      },
+    })
+    // const siblings = oldView?.siblings
+    // if (siblings) {
+    //   const sibling = oldView.siblings
+    //   promisifiedTween({
+    //     durationMS: 500,
+    //     onUpdate: (v) => {
+    //       for (let i = 0; i < sibling.length; i++) {
+    //         const view = siblings[i] as View
+    //         view.metaLabelsRevealFactor = 1 - v
+    //       }
+    //     },
+    //   })
+    // }
   }
 
   if (!hitView) {
@@ -345,6 +441,7 @@ async function onMouseClick(e: MouseEvent) {
     if (!oldView) {
       return
     }
+    oldView.open = false
     if (!oldView.parentNode) {
       return
     }
@@ -359,17 +456,25 @@ async function onMouseClick(e: MouseEvent) {
     // const levelOffset = oldView?.project ? 0 : 0
     const levelIndex = oldView.levelIndex - 2
 
+    // const rowHeight = childrenRowHeights[oldView.parentNode.uid] //childrenRowHeights[oldView.uid]
     const rowHeight =
-      childrenRowHeights[oldView.uid] ||
-      childrenRowHeights[oldView.parentNode.uid]
+      childrenRowHeights[((oldView as View).parentNode as View).uid]
 
+    // const newY =
+    //   levelIndex === 0 ? 0 : -rowHeight / 2 - LAYOUT_LEVEL_Y_OFFSET * levelIndex
     const newY =
-      levelIndex === 0 ? 0 : -rowHeight / 2 - LAYOUT_LEVEL_Y_OFFSET * levelIndex
+      levelIndex === 0
+        ? 0
+        : -rowHeight / 2 - LAYOUT_LEVEL_Y_OFFSET * levelIndex + CUBE_HEIGHT / 2
     const newZ = 8 + levelIndex * CAMERA_LEVEL_Z_OFFSET
 
     // debugger
 
-    tweenCameraToPosition(0, newY, newZ)
+    tweenCameraToPosition({
+      newX: 0,
+      newY,
+      newZ,
+    })
     return
   }
 
@@ -384,21 +489,57 @@ async function onMouseClick(e: MouseEvent) {
   }
 
   if (hitView.project) {
-    traverseViewNodes(rootNode, (view) => {
-      if (view !== hitView) {
-        view.fadeFactor = 0.2
-      } else {
-        view.fadeFactor = 1
-      }
-    })
-    tweenCameraToPosition(
-      hitView.position[0],
-      hitView.position[1],
-      hitView.position[2] + 5,
+    if (hitView.open) {
+      store.dispatch(setIsCurrentlyTransitionViews(false))
+      return
+    }
+    console.log('hit')
+    hitView.open = true
+    if (oldView) {
+      oldView.open = false
+    }
+    new Tween({
+      durationMS: 500,
+      onUpdate: (v) => {
+        hitView.metaLabelsRevealFactor = v
+        if (oldView?.project) {
+          hitView.fadeFactor = clamp(
+            mapNumberRange(v, 0, 1, View.FADED_OUT_FACTOR, 1),
+            View.FADED_OUT_FACTOR,
+            1,
+          )
+
+          oldView.fadeFactor = clamp(
+            mapNumberRange(v, 0, 1, 1, View.FADED_OUT_FACTOR),
+            View.FADED_OUT_FACTOR,
+            1,
+          )
+          oldView.metaLabelsRevealFactor = 1 - v
+        } else {
+          traverseViewNodes(rootNode, (view) => {
+            if (view !== hitView) {
+              view.fadeFactor = clamp(
+                mapNumberRange(v, 0, 1, 1, View.FADED_OUT_FACTOR),
+                View.FADED_OUT_FACTOR,
+                1,
+              )
+            }
+          })
+        }
+      },
+    }).start()
+    tweenCameraToPosition({
+      newX: hitView.position[0],
+      newY: hitView.position[1],
+      newZ: hitView.position[2] + 5,
+      // lookAtTweenDurationMS: 1200,
+      lookAtDelayMS: 250,
+      lookAtTweenEaseName: 'exp_Out',
+      // lookAtDelayMS: 150,
       // hitView.position[0],
       // hitView.position[1],
       // hitView.position[2] - 100,
-    )
+    })
     store.dispatch(setActiveItemUID(hitView.uid))
     store.dispatch(setIsCurrentlyTransitionViews(false))
     return
@@ -454,15 +595,36 @@ async function onMouseClick(e: MouseEvent) {
   }
   console.log('----- end')
 
-  const levelIndex = hitView.levelIndex - 2
+  const levelIndex = hitView.levelIndex - 2 + (hitView.open ? 1 : 0)
+  const rowHeight = hitView.open
+    ? childrenRowHeights[hitView.uid]
+    : childrenRowHeights[(hitView.parentNode as View).uid]
+  // console.log('hitView.open', hitView.open)
 
   const newY =
-    (levelIndex === 0 ? 0 : -childrenRowHeights[hitView.uid] / 2) -
-    LAYOUT_LEVEL_Y_OFFSET * (levelIndex + (hitView.open ? 1 : 0))
-  // const newZ = (levelIndex + (hitView.open ? 1 : 0)) * CAMERA_LEVEL_Z_OFFSET
-  const newZ = 8 + (levelIndex + (hitView.open ? 1 : 0)) * CAMERA_LEVEL_Z_OFFSET
+    levelIndex === 0
+      ? 0
+      : -rowHeight / 2 - LAYOUT_LEVEL_Y_OFFSET * levelIndex + CUBE_HEIGHT / 2
+  const newZ = 8 + levelIndex * CAMERA_LEVEL_Z_OFFSET
 
-  tweenCameraToPosition(0, newY, newZ, 0, newY, -100)
+  console.log(levelIndex, hitView.open)
+
+  closeButton.fadeFactor = 1
+  closeButton.setPosition([
+    LAYOUT_COLUMN_MAX_WIDTH / 2 - CLOSE_BUTTON_WIDTH,
+    newY + CUBE_HEIGHT,
+    newZ - 8,
+  ])
+  closeButton.updateWorldMatrix()
+
+  tweenCameraToPosition({
+    newX: 0,
+    newY,
+    newZ,
+    newLookAtX: 0,
+    newLookAtY: newY,
+    newLookAtZ: -100,
+  })
 
   // console.log({ newX, newY, newZ })
 
@@ -490,7 +652,27 @@ function updateFrame(ts: DOMHighResTimeStamp) {
     OPTIONS.cameraFreeMode ? freeOrbitCamera : perspectiveCamera,
   )
 
-  const hitView = getHoveredSceneNode(rayStart, rayDirection)
+  const [hitView, isOpenLink] = getHoveredSceneNode(rayStart, rayDirection)
+  // debugLines.push(new Line(gl, rayStart, rayDirection))
+
+  if (isOpenLink) {
+    if (hitView === prevHoverView) {
+      if (openButtonHoverTransition) {
+        console.log('same')
+        new Tween({
+          durationMS: 250,
+          onUpdate: (v) => {
+            hitView.hoverFactor = v
+          },
+        }).start()
+        openButtonHoverTransition = false
+      }
+    } else {
+      openButtonHoverTransition = true
+      console.log('no')
+    }
+  }
+  prevHoverView = hitView
 
   const {
     ui: { showCubeHighlight },
@@ -501,7 +683,8 @@ function updateFrame(ts: DOMHighResTimeStamp) {
     store.dispatch(setIsHovering(true))
   } else {
     hoverCube.setPosition([100, 100, 100])
-    store.dispatch(setIsHovering(false))
+    // store.dispatch(setIsHovering(false))
+    store.dispatch(setIsHovering(hitView && hitView.open && isOpenLink))
   }
 
   // update camera
@@ -530,8 +713,9 @@ function updateFrame(ts: DOMHighResTimeStamp) {
   gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight)
   gl.clearColor(0.1, 0.1, 0.1, 1.0)
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
-  gl.enable(gl.BLEND)
-  gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
+  // gl.enable(gl.BLEND)
+  // gl.blendFunc(gl.SRC_ALPHA, gl.DST_ALPHA)
+  // gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
 
   // UBO for perspective camera projections
   if (uboPerspectiveCamera) {
@@ -566,14 +750,27 @@ function updateFrame(ts: DOMHighResTimeStamp) {
     .render()
 
   if (uboPerspectiveCamera) {
-    boxesRootNode.render()
+    // rootNode.render()
+
+    for (let i = 0; i < opaqueObjects.length; i++) {
+      const child = opaqueObjects[i]
+      child.render()
+    }
+    for (let i = 0; i < transparentObjects.length; i++) {
+      const child = transparentObjects[i]
+      child.render()
+    }
 
     gl.enable(gl.CULL_FACE)
     gl.cullFace(gl.FRONT)
+    // gl.disable(gl.DEPTH_TEST)
     hoverCube.updateWorldMatrix()
     hoverCube.render()
 
     gl.disable(gl.CULL_FACE)
+    // gl.enable(gl.DEPTH_TEST)
+
+    // closeButton.render()
   }
 
   debugLines.forEach((rayLine) => rayLine.render())
@@ -615,19 +812,28 @@ function updateFrame(ts: DOMHighResTimeStamp) {
   // dofQuad.render(1)
 }
 
-function getHoveredSceneNode(rayStart: vec3, rayDirection: vec3): View {
+function getHoveredSceneNode(
+  rayStart: vec3,
+  rayDirection: vec3,
+): [View, boolean] {
   let prevRayTimeSample = Infinity
   let hitView!: View
+  let isOpenLink = false
 
   traverseViewNodes(boxesRootNode, (child) => {
-    const rayTime = child.testRayIntersection(rayStart, rayDirection)
+    const testInfo = child.testRayIntersection(rayStart, rayDirection)
+    if (!testInfo) {
+      return
+    }
+    const [rayTime, _isOpenLink] = testInfo
     if (rayTime !== null && rayTime < prevRayTimeSample) {
       prevRayTimeSample = rayTime
       hitView = child
+      isOpenLink = _isOpenLink
     }
   })
 
-  return hitView
+  return [hitView, isOpenLink]
 }
 
 async function toggleChildrenRowVisibility(
@@ -648,7 +854,7 @@ async function toggleChildrenRowVisibility(
     views.map((child, i) =>
       promisifiedTween({
         durationMS,
-        delayMS: visible ? i * 50 : 0,
+        delayMS: TRANSITION_ROW_DELAY + (visible ? i * 50 : 0),
         easeName,
         onUpdate: (v) => {
           child.visibilityTweenFactor = visible ? v : 1 - v
@@ -663,30 +869,25 @@ async function toggleChildrenRowVisibility(
   )
 }
 
-async function tweenCameraToPosition(
-  newX: number,
-  newY: number,
-  newZ: number,
+async function tweenCameraToPosition({
+  newX,
+  newY,
+  newZ,
+  positionDelayMS = 0,
+  positionTweenDurationMS = TRANSITION_CAMERA_DURATION,
+  positionTweenEaseName = TRANSITION_CAMERA_EASE,
   newLookAtX = newX,
   newLookAtY = newY,
   newLookAtZ = newZ - 100,
-) {
-  // const newX = 0
-  // const newY =
-  //   (levelIndex === 0 ? 0 : -childrenRowHeights[hitView.uid] / 2) -
-  //   LAYOUT_LEVEL_Y_OFFSET * (levelIndex + (hitView.open ? 1 : 0))
-  // const newZ = 8 + (levelIndex + (hitView.open ? 1 : 0)) * CAMERA_LEVEL_Z_OFFSET
-
-  // const newLookAtX = 0
-  // const newLookAtY = newY
-  // const newLookAtZ = -100
-
-  // console.log({ newX, newY, newZ })
-
-  return new Promise((resolve) => {
-    new Tween({
-      durationMS: TRANSITION_CAMERA_DURATION,
-      easeName: TRANSITION_CAMERA_EASE,
+  lookAtDelayMS = 0,
+  lookAtTweenDurationMS = TRANSITION_CAMERA_DURATION,
+  lookAtTweenEaseName = TRANSITION_CAMERA_EASE,
+}: CameraTransitionProps) {
+  return Promise.all([
+    promisifiedTween({
+      durationMS: positionTweenDurationMS,
+      delayMS: positionDelayMS,
+      easeName: positionTweenEaseName,
       onUpdate: (v) => {
         perspectiveCamera.position[0] +=
           (newX - perspectiveCamera.position[0]) * v
@@ -695,6 +896,14 @@ async function tweenCameraToPosition(
         perspectiveCamera.position[2] +=
           (newZ - perspectiveCamera.position[2]) * v
 
+        perspectiveCamera.updateViewMatrix().updateProjectionViewMatrix()
+      },
+    }),
+    promisifiedTween({
+      durationMS: lookAtTweenDurationMS,
+      delayMS: lookAtDelayMS,
+      easeName: lookAtTweenEaseName,
+      onUpdate: (v) => {
         perspectiveCamera.lookAt[0] +=
           (newLookAtX - perspectiveCamera.lookAt[0]) * v
         perspectiveCamera.lookAt[1] +=
@@ -702,11 +911,12 @@ async function tweenCameraToPosition(
         perspectiveCamera.lookAt[2] +=
           (newLookAtZ - perspectiveCamera.lookAt[2]) * v
 
-        // perspectiveCamera.updateViewMatrix().updateProjectionViewMatrix()
+        perspectiveCamera.updateViewMatrix().updateProjectionViewMatrix()
       },
-      onComplete: () => resolve(null),
-    }).start()
-  })
+    }),
+  ])
+
+  // return
 }
 
 async function fadeInFadedOutView(
@@ -727,6 +937,29 @@ async function fadeInFadedOutView(
       })
     },
   })
+}
+
+function makeCloseButtonTexture() {
+  if (closeButtonTextureCanvas) {
+    return closeButtonTextureCanvas
+  }
+  const c = document.createElement('canvas')
+  c.width = 64
+  c.height = 64
+  const cc = c.getContext('2d')!
+  cc.strokeStyle = 'white'
+  cc.lineWidth = 1
+  const padding = c.width * 0.2
+  cc.beginPath()
+  cc.moveTo(padding, padding)
+  cc.lineTo(c.width - padding, c.height - padding)
+  cc.stroke()
+  cc.beginPath()
+  cc.moveTo(c.width - padding, padding)
+  cc.lineTo(padding, c.height - padding)
+  cc.stroke()
+  closeButtonTextureCanvas = c
+  return closeButtonTextureCanvas
 }
 
 function sizeCanvas() {

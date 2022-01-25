@@ -1,4 +1,4 @@
-import { vec3 } from 'gl-matrix'
+import { mat4, vec3 } from 'gl-matrix'
 import { Drawable } from '../lib/hwoa-rang-gl2'
 
 import VERTEX_SHADER_SRC from '../shaders/uberShader.vert'
@@ -8,12 +8,13 @@ import { CAMERA_FAR, CAMERA_NEAR } from '../constants'
 
 export default class Quad extends Drawable {
   cameraUBOIndex: GLuint
+
   protected _worldSpaceVertPositions!: [vec3, vec3, vec3, vec3]
 
   get cornersInWorldSpace(): [vec3, vec3, vec3, vec3] {
-    if (this._worldSpaceVertPositions && !this.shouldUpdate) {
-      return this._worldSpaceVertPositions
-    }
+    // if (this._worldSpaceVertPositions && !this.uploadedWorldMatrix) {
+    //   return this._worldSpaceVertPositions
+    // }
     const labelWidth = this.boundingBox.max[0] - this.boundingBox.min[0]
     const labelHeight = this.boundingBox.max[1] - this.boundingBox.min[1]
     const pos0 = vec3.fromValues(-labelWidth / 2, labelHeight / 2, 0)
@@ -25,6 +26,8 @@ export default class Quad extends Drawable {
     vec3.transformMat4(pos2, pos2, this.worldMatrix)
     vec3.transformMat4(pos3, pos3, this.worldMatrix)
     this._worldSpaceVertPositions = [pos0, pos1, pos2, pos3]
+    // console.log('comoute', this.name, this._worldSpaceVertPositions)
+    // this.uploadedWorldMatrix = true
     return this._worldSpaceVertPositions
   }
 
@@ -116,6 +119,9 @@ export default class Quad extends Drawable {
   }
 
   render(cameraUBOBindPoint = 0) {
+    if (!this._visible) {
+      return
+    }
     const gl = this.gl
     this.preRender(cameraUBOBindPoint)
 
