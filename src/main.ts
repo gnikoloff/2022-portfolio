@@ -705,7 +705,8 @@ async function onMouseClick(e: MouseEvent) {
 }
 
 function updateFrame(ts: DOMHighResTimeStamp) {
-  const dt = ts - oldTime
+  ts *= 0.001
+  const dt = Math.min(ts - oldTime, 1)
   oldTime = ts
 
   requestAnimationFrame(updateFrame)
@@ -792,11 +793,11 @@ function updateFrame(ts: DOMHighResTimeStamp) {
       ui: { mousePos },
     } = store.getState()
     const camHoverMoveRadius = hitView && hitView.project ? 1 : 3
-    camMoveRadius += (camHoverMoveRadius - camMoveRadius) * (dt * 0.001)
+    camMoveRadius += (camHoverMoveRadius - camMoveRadius) * dt
 
     const mx = (mousePos[0] / innerWidth - 0.5) * camMoveRadius
     const my = (1.0 - mousePos[1] / innerHeight - 0.5) * camMoveRadius
-    const speed = dt * 0.001 * 2
+    const speed = dt * 2
     const x = mx + -mx * speed
     const y = my + -my * speed
     const z = 0
