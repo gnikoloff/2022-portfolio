@@ -41,6 +41,10 @@ precision highp float;
   uniform vec4 u_uvOffsetSizesHoverMask;
 #endif
 
+#ifdef IS_FOG
+  in float vFogDepth;
+#endif
+
 in vec4 vNormal;
 in vec2 vUv;
 
@@ -100,57 +104,61 @@ void main () {
 
   #ifdef USE_SOLID_COLOR
     finalColor = u_solidColor;
-  #else
-    #ifdef USE_TEXTURE
-      // https://bgolus.medium.com/sharper-mipmapping-using-shader-based-supersampling-ed7aadb47bec
-      float lodBias = -0.5;
-      #ifdef IS_CUBE
-        if (vUv.x > FACE_STEP && vUv.x < FACE_STEP2) { 
-          float aspect = MESH_WIDTH / MESH_HEIGHT;
-          float borderWidth = 0.02;
-          float maxX = 1.0 - borderWidth;
-          float minX = borderWidth;
-          float maxY = 1.0 - borderWidth;
-          float minY = borderWidth;
-          if (
-            borderUV.x < maxX &&
-            borderUV.x > minX &&
-            borderUV.y < maxY &&
-            borderUV.y > minY
-          ) {
-            finalColor = texture(u_diffuse, uv, -0.5);  
-          } else {
-            finalColor = vec4(vec3(0.3), 1.0);
-          }
+  #endif
+
+  #ifdef USE_TEXTURE
+    // https://bgolus.medium.com/sharper-mipmapping-using-shader-based-supersampling-ed7aadb47bec
+    float lodBias = -0.5;
+    #ifdef IS_CUBE
+      if (vUv.x > FACE_STEP && vUv.x < FACE_STEP2) { 
+        float aspect = MESH_WIDTH / MESH_HEIGHT;
+        float borderWidth = 0.02;
+        float maxX = 1.0 - borderWidth;
+        float minX = borderWidth;
+        float maxY = 1.0 - borderWidth;
+        float minY = borderWidth;
+        if (
+          borderUV.x < maxX &&
+          borderUV.x > minX &&
+          borderUV.y < maxY &&
+          borderUV.y > minY
+        ) {
+          finalColor = texture(u_diffuse, uv, -0.5);  
         } else {
           finalColor = vec4(vec3(0.3), 1.0);
         }
+      } else {
+        finalColor = vec4(vec3(0.3), 1.0);
+      }
+    #else
+      #ifdef USE_GAUSSIAN_BLUR
+        finalColor = blur9(u_diffuse, uv, u_resolution, u_blurDirection);
       #else
-        #ifdef USE_GAUSSIAN_BLUR
-          finalColor = blur9(u_diffuse, uv, u_resolution, u_blurDirection);
-        #else
-          #ifdef USE_MASK_TEXTURE
-            vec4 maskColor = texture(u_maskTexture, maskUV);
-            vec4 texColor = texture(u_diffuse, uv);
-            finalColor = mix(vec4(0.0), texColor, 1.0 - step(u_revealMixFactor, maskColor.r));
-            #ifdef SUPPORTS_HOVER_MASK_FX
-              vec4 maskColor2 = texture(u_maskTexture2, hoverMaskUV);
-              vec4 hoverColor = vec4(vec3(1.0) - texColor.rgb, texColor.a);
-              hoverColor = mix(vec4(0.0), hoverColor, 1.0 - step(u_hoverMixFactor, maskColor2.r));
-              // hoverColor = hoverColor;
-              finalColor.rgb = blendNormal(finalColor, hoverColor, u_hoverMixFactor).rgb;
-            #endif
-          #else
-            finalColor = texture(u_diffuse, uv, -0.5);
+        #ifdef USE_MASK_TEXTURE
+          vec4 maskColor = texture(u_maskTexture, maskUV);
+          vec4 texColor = texture(u_diffuse, uv);
+          finalColor = mix(vec4(0.0), texColor, 1.0 - step(u_revealMixFactor, maskColor.r));
+          #ifdef SUPPORTS_HOVER_MASK_FX
+            vec4 maskColor2 = texture(u_maskTexture2, hoverMaskUV);
+            vec4 hoverColor = vec4(vec3(1.0) - texColor.rgb, texColor.a);
+            hoverColor = mix(vec4(0.0), hoverColor, 1.0 - step(u_hoverMixFactor, maskColor2.r));
+            // hoverColor = hoverColor;
+            finalColor.rgb = blendNormal(finalColor, hoverColor, u_hoverMixFactor).rgb;
           #endif
+        #else
+          finalColor = texture(u_diffuse, uv, -0.5);
         #endif
       #endif
-    #else
-      finalColor = vec4(uv, 0.0, 1.0);
     #endif
   #endif
 
+  #ifdef IS_FOG
+    vec4 fogColor = vec4(0.1, 0.1, 0.1, 1.0);
+    float fogAmount = smoothstep(0.1, 30.0, vFogDepth);
+    finalColor = mix(finalColor, fogColor, fogAmount);
+  #endif
+
   #ifdef SUPPORTS_FADING
-    finalColor.a = mix(0.1, finalColor.a, u_fadeMixFactor);
+    finalColor.a = mix(0.0, finalColor.a, u_fadeMixFactor);
   #endif
 }

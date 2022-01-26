@@ -81,8 +81,9 @@ import {
   TRANSITION_ROW_DURATION,
   TRANSITION_ROW_EASE,
 } from './constants'
+import Floor from './meshes/floor'
 
-import EnvironmentBox from './meshes/environment-box'
+// import EnvironmentBox from './meshes/environment-box'
 
 const OPTIONS = {
   cameraFreeMode: false,
@@ -125,6 +126,7 @@ const debugLines: Line[] = []
 const rootNode = new SceneNode('rootNode')
 const boxesRootNode = new SceneNode('boxesRootNode')
 // const environment = new EnvironmentBox(gl)
+const floor = new Floor(gl)
 boxesRootNode.setParent(rootNode)
 
 // Init texture atlas
@@ -224,7 +226,7 @@ const uboCameraBlockInfo = createUniformBlockInfo(
   gl,
   hoverCube.program,
   'Camera',
-  ['projectionViewMatrix'],
+  ['viewMatrix', 'projectionViewMatrix'],
 )
 const uboPerspectiveCamera = createAndBindUBOToBase(
   gl,
@@ -850,14 +852,17 @@ function updateFrame(ts: DOMHighResTimeStamp) {
 
   // UBO for perspective camera projections
   if (uboPerspectiveCamera) {
+    const viewMatrix = OPTIONS.cameraFreeMode
+      ? freeOrbitCamera.viewMatrix
+      : perspectiveCamera.viewMatrix
     const projViewMatix = OPTIONS.cameraFreeMode
       ? freeOrbitCamera.projectionViewMatrix
       : perspectiveCamera.projectionViewMatrix
     gl.bindBuffer(gl.UNIFORM_BUFFER, uboPerspectiveCamera)
+    gl.bufferSubData(gl.UNIFORM_BUFFER, 0, viewMatrix as ArrayBufferView, 0)
     gl.bufferSubData(
       gl.UNIFORM_BUFFER,
-      // uboCameraBlockInfo.uniforms.projectionViewMatrix.offset,
-      0,
+      16 * Float32Array.BYTES_PER_ELEMENT,
       projViewMatix as ArrayBufferView,
       0,
     )
@@ -865,9 +870,16 @@ function updateFrame(ts: DOMHighResTimeStamp) {
 
   // UBO for orthographic camera projections
   if (uboOrthographicCamera) {
+    const viewMatrix = orthographicCamera.viewMatrix
     const projViewMatix = orthographicCamera.projectionViewMatrix
     gl.bindBuffer(gl.UNIFORM_BUFFER, uboOrthographicCamera)
-    gl.bufferSubData(gl.UNIFORM_BUFFER, 0, projViewMatix as ArrayBufferView, 0)
+    gl.bufferSubData(gl.UNIFORM_BUFFER, 0, viewMatrix as ArrayBufferView, 0)
+    gl.bufferSubData(
+      gl.UNIFORM_BUFFER,
+      16 * Float32Array.BYTES_PER_ELEMENT,
+      projViewMatix as ArrayBufferView,
+      0,
+    )
   }
 
   gl.bindBuffer(gl.UNIFORM_BUFFER, null)
@@ -882,6 +894,7 @@ function updateFrame(ts: DOMHighResTimeStamp) {
 
   if (uboPerspectiveCamera) {
     // environment.render()
+    floor.render()
 
     for (let i = 0; i < opaqueObjects.length; i++) {
       const child = opaqueObjects[i]

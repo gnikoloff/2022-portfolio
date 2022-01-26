@@ -45,7 +45,7 @@ export default class MenuBox extends Drawable {
       USE_SHADING: true,
       USE_SOLID_COLOR: !!solidColor,
       USE_SPIRAL_DEFORM: true,
-      USE_TEXTURE: true,
+      USE_TEXTURE: !solidColor,
       USE_UV_TRANSFORM: true,
       USE_BACKGROUND_SIZE_COVER: true,
       MESH_WIDTH: geometry.width,

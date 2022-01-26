@@ -3,7 +3,6 @@ import { createBox, Drawable } from '../lib/hwoa-rang-gl2'
 import VERTEX_SHADER_SRC from '../shaders/uberShader.vert'
 import FRAGMENT_SHADER_SRC from '../shaders/uberShader.frag'
 import { EnvBoxProps } from '../interfaces'
-import { mat4 } from 'gl-matrix'
 
 export default class EnvironmentBox extends Drawable {
   cameraUBOIndex: GLuint

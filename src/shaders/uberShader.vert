@@ -3,6 +3,7 @@
 -- DEFINES_HOOK --
 
 uniform Camera {
+  mat4 viewMatrix;
   mat4 projectionViewMatrix;
 };
 
@@ -26,6 +27,10 @@ in vec2 aUv;
 
 #ifdef USE_INSTANCING
   in mat4 aInstanceMatrix;
+#endif
+
+#ifdef IS_FOG
+  out float vFogDepth;
 #endif
 
 out vec2 vUv;
@@ -58,6 +63,11 @@ void main () {
       normal = doBoxTwist(normal, ang);
     #endif
     vNormal = normal;
+  #endif
+
+  #ifdef IS_FOG
+    mat4 worldView = viewMatrix * worldMatrix;
+    vFogDepth = -(worldView * aPosition).z;
   #endif
 
 }
