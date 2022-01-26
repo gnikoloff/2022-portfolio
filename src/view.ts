@@ -35,6 +35,7 @@ export default class View extends SceneNode {
   project?: Project
   externalURL?: string
 
+  #visibilityTweenFactor = -1
   tweenAnimMode: 0 | 1 = 0 // 0 - reveal, 1 - hide animation mode
 
   static ROTATION_X_AXIS_ON_OPEN = Math.PI
@@ -45,6 +46,9 @@ export default class View extends SceneNode {
   static MESH_WRAPPER_NAME = 'mesh-wrapper'
 
   set visible(v: boolean) {
+    if (!v && this.#visibilityTweenFactor !== 0) {
+      this.visibilityTweenFactor = 0
+    }
     this._visible = v
     const viewWrapper = this.findChild(
       (child) => child.name === View.MESH_WRAPPER_NAME,
@@ -99,7 +103,12 @@ export default class View extends SceneNode {
     }
   }
 
+  get visibilityTweenFactor(): number {
+    return this.#visibilityTweenFactor
+  }
+
   set visibilityTweenFactor(v: number) {
+    this.#visibilityTweenFactor = v
     const startRotationAngle =
       this.tweenAnimMode === 0
         ? View.ROTATION_X_AXIS_ON_OPEN

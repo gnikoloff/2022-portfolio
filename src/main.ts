@@ -250,44 +250,64 @@ fetch(API_ENDPOINT)
 
     const projectsNode = new View(gl, {
       ...viewGeoPartialProps,
-      name: 'Projects',
+      name: 'projects',
     })
     projectsNode.loadThumbnail()
     projectsNode.visibilityTweenFactor = 1
-
     projectsNode.setParent(boxesRootNode)
 
     const aboutNode = new View(gl, { ...viewGeoPartialProps, name: 'about' })
-    aboutNode.loadThumbnail()
-    aboutNode.visibilityTweenFactor = 1
-    aboutNode.visible = true
-    aboutNode.setParent(boxesRootNode)
+    aboutNode.setParent(boxesRootNode).loadThumbnail()
 
     const aaaaaaNode = new View(gl, { ...viewGeoPartialProps, name: 'aa' })
     aaaaaaNode.loadThumbnail()
-    aaaaaaNode.visibilityTweenFactor = 1
     aaaaaaNode.visible = false
     aaaaaaNode.setParent(aboutNode)
 
     const contactNode = new View(gl, {
       ...viewGeoPartialProps,
-      name: 'contact',
+      name: 'social',
+    })
+    contactNode.setParent(boxesRootNode).loadThumbnail()
+
+    const githubNode = new View(gl, {
+      ...viewGeoPartialProps,
+      name: 'github',
+      externalURL: 'https://github.com/gnikoloff',
+    })
+    githubNode.visible = false
+    githubNode.setParent(contactNode).loadThumbnail()
+
+    const twitterNode = new View(gl, {
+      ...viewGeoPartialProps,
+      name: 'twitter',
+      externalURL: 'https://twitter.com/georgiNikoloff',
+    })
+    twitterNode.visible = false
+    twitterNode.setParent(contactNode).loadThumbnail()
+
+    const codepenNode = new View(gl, {
+      ...viewGeoPartialProps,
+      name: 'codepen',
+      externalURL: 'https://codepen.io/gbnikolov',
+    })
+    codepenNode.visible = false
+    codepenNode.setParent(contactNode).loadThumbnail()
+
+    const mailNode = new View(gl, {
+      ...viewGeoPartialProps,
+      name: 'mail',
       externalURL: 'mailto:connect@georgi-nikolov.com',
     })
-    contactNode.loadThumbnail()
-    contactNode.visibilityTweenFactor = 1
-    contactNode.visible = true
-    contactNode.setParent(boxesRootNode)
+    mailNode.visible = false
+    mailNode.setParent(contactNode).loadThumbnail()
 
     const blogNode = new View(gl, {
       ...viewGeoPartialProps,
       name: 'archive',
       externalURL: 'https://archive.georgi-nikolov.com/',
     })
-    blogNode.loadThumbnail()
-    blogNode.visibilityTweenFactor = 1
-    blogNode.visible = true
-    blogNode.setParent(boxesRootNode)
+    blogNode.setParent(boxesRootNode).loadThumbnail()
 
     const sortedYearsArr: [number, Project[]][] = Object.entries(projectsByYear)
       .map(([year, project]) => [parseInt(year, 10), project])
@@ -582,7 +602,7 @@ async function onMouseClick(e: MouseEvent) {
       hitView.open = true
       if (oldView) {
         if (oldView.open) {
-          await toggleChildrenRowVisibility({
+          toggleChildrenRowVisibility({
             node: oldView,
             visible: false,
           })
@@ -810,8 +830,6 @@ function updateFrame(ts: DOMHighResTimeStamp) {
       (ty - perspectiveCamera.position[1]) * speed
     perspectiveCamera.position[2] +=
       (tz - perspectiveCamera.position[2]) * speed
-
-    console.log(cameraPositionOffset[1], y)
 
     perspectiveCamera.lookAt[0] = 0
     perspectiveCamera.lookAt[1] = cameraLookAtOffset[1]
