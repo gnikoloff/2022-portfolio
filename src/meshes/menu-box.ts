@@ -11,8 +11,10 @@ import FRAGMENT_SHADER_SRC from '../shaders/uberShader.frag'
 export default class MenuBox extends Drawable {
   cameraUBOIndex: GLuint
   textureAtlas!: WebGLTexture
+  side: GLenum
 
   posterLoaded = false
+  visible = true
 
   #fadeFactor = 0
 
@@ -39,7 +41,7 @@ export default class MenuBox extends Drawable {
 
   constructor(
     gl: WebGL2RenderingContext,
-    { geometry, solidColor, name }: CubeProps,
+    { geometry, solidColor, name, side = gl.BACK }: CubeProps,
   ) {
     const defines = {
       USE_SHADING: true,
@@ -56,6 +58,7 @@ export default class MenuBox extends Drawable {
     super(gl, VERTEX_SHADER_SRC, FRAGMENT_SHADER_SRC, defines)
 
     this.name = name
+    this.side = side
 
     const {
       interleavedArray,
@@ -176,7 +179,7 @@ export default class MenuBox extends Drawable {
   }
 
   render(): void {
-    if (!this._visible) {
+    if (!this.visible) {
       return
     }
     const gl = this.gl
@@ -184,15 +187,23 @@ export default class MenuBox extends Drawable {
     gl.useProgram(this.program)
     this.uploadWorldMatrix()
 
+    if (this.side !== gl.BACK) {
+      gl.enable(gl.CULL_FACE)
+      gl.cullFace(this.side)
+    }
+
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
     gl.enable(gl.BLEND)
-    // gl.disable(gl.DEPTH_TEST)
 
     gl.activeTexture(gl.TEXTURE0)
     gl.bindTexture(gl.TEXTURE_2D, this.textureAtlas)
 
     gl.bindVertexArray(this.vao)
     gl.drawElements(gl.TRIANGLES, this.vertexCount, gl.UNSIGNED_SHORT, 0)
+
+    if (this.side !== gl.BACK) {
+      gl.disable(gl.CULL_FACE)
+    }
 
     gl.disable(gl.BLEND)
     // gl.enable(gl.DEPTH_TEST)

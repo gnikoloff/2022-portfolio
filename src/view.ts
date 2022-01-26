@@ -1,10 +1,10 @@
 import { vec3 } from 'gl-matrix'
-
 import { SceneNode } from './lib/hwoa-rang-gl2'
 import {
   intersectRayWithAABB,
-  // intersectRayWithQuad,
+  intersectRayWithQuad,
 } from './lib/hwoa-rang-math'
+
 import {
   CUBE_DEPTH,
   CUBE_HEIGHT,
@@ -22,12 +22,12 @@ import Cube from './meshes/menu-box'
 import Label from './meshes/label'
 
 import { Project, ViewProps } from './interfaces'
-import { intersectRayWithQuad } from './lib/hwoa-rang-math/src'
 
 export default class View extends SceneNode {
   open = false
 
   projectThumbNode: Cube
+  hoverThumbNode: Cube
   projectLabelNode?: Label
   projectRoleNode?: Label
   openLabelNode?: Label
@@ -43,6 +43,7 @@ export default class View extends SceneNode {
   static DEFORM_ANGLE_ON_OPEN = Math.PI * 0.5
   static DEFORM_ANGLE_ON_CLOSE = Math.PI * 0.6
   static FADED_OUT_FACTOR = 0.2
+  static HOVER_MESH_UPSCALE_FACTOR = 0.05
   static MESH_WRAPPER_NAME = 'mesh-wrapper'
 
   set visible(v: boolean) {
@@ -128,6 +129,15 @@ export default class View extends SceneNode {
     this.projectThumbNode.fadeFactor = v
     this.projectThumbNode.deformationAngle =
       View.DEFORM_ANGLE_ON_OPEN - deformAngle
+
+    const upscale = scale + View.HOVER_MESH_UPSCALE_FACTOR
+    this.hoverThumbNode
+      .setScale([upscale, upscale, upscale])
+      .setRotation([rotation, currRotationY, currRotationZ])
+    this.hoverThumbNode.fadeFactor = v
+    this.hoverThumbNode.deformationAngle =
+      View.DEFORM_ANGLE_ON_OPEN - deformAngle
+
     if (this.projectLabelNode) {
       this.projectLabelNode.revealMixFactor = v
     }
@@ -185,6 +195,12 @@ export default class View extends SceneNode {
       }
     }
 
+    if (this.open && this.project) {
+      this.hoverThumbNode.visible = false
+    } else {
+      this.hoverThumbNode.visible = !!rayTime
+    }
+
     return [rayTime, isOpenLink]
   }
 
@@ -208,8 +224,23 @@ export default class View extends SceneNode {
     const meshWrapperNode = new SceneNode(View.MESH_WRAPPER_NAME)
     meshWrapperNode.setParent(this)
 
-    this.projectThumbNode = new Cube(gl, { geometry: cubeGeometry, name })
+    this.projectThumbNode = new Cube(gl, {
+      geometry: cubeGeometry,
+      name,
+    })
     this.projectThumbNode.setParent(meshWrapperNode)
+
+    this.hoverThumbNode = new Cube(gl, {
+      geometry: cubeGeometry,
+      solidColor: [0, 0, 1, 1],
+      side: gl.FRONT,
+    })
+    this.hoverThumbNode.visible = false
+    const hoverScale = 1 + View.HOVER_MESH_UPSCALE_FACTOR
+    this.hoverThumbNode
+      .setScale([hoverScale, hoverScale, hoverScale])
+      .updateWorldMatrix()
+      .setParent(meshWrapperNode)
 
     if (hasLabel) {
       this.projectLabelNode = new Label(gl, {

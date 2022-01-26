@@ -10,6 +10,7 @@ import {
 import store from './store'
 
 import {
+  capitalizeFirstLetter,
   getChildrenRowTotalHeight,
   getXYZForViewIdxWithinLevel,
   promisifiedTween,
@@ -115,16 +116,13 @@ let hitView!: View
 let oldActiveItemUID: string
 let prevHoverView!: View
 let openButtonHoverTransition = false
-let closeButtonTextureCanvas: HTMLCanvasElement
 
 const cameraPositionOffset = vec3.fromValues(0, 0, CAMERA_BASE_Z_OFFSET)
 const cameraLookAtOffset = vec3.create()
 const activeTweens: Map<string, Tween> = new Map()
-const opaqueObjects: SceneNode[] = []
-const transparentObjects: SceneNode[] = []
 const debugLines: Line[] = []
-const rootNode = new SceneNode('rootNode')
-const boxesRootNode = new SceneNode('boxesRootNode')
+const rootNode = new SceneNode()
+const boxesRootNode = new SceneNode()
 // const environment = new EnvironmentBox(gl)
 const floor = new Floor(gl)
 boxesRootNode.setParent(rootNode)
@@ -190,36 +188,12 @@ const openButtonGeometry = createPlane({
   width: OPEN_BUTTON_WIDTH,
   height: OPEN_BUTTON_HEIGHT,
 })
-const closeBtnGeometry = createBox({
-  width: CLOSE_BUTTON_WIDTH,
-  height: CLOSE_BUTTON_HEIGHT,
-  depth: CLOSE_BUTTON_DEPTH,
-  uvOffsetEachFace: true,
-})
 
 // Hover cube
 const hoverCube = new MenuBox(gl, {
   geometry: cubeGeometry,
   solidColor: [0, 0, 1, 1],
 })
-hoverCube.setPosition([-1, 0, 0])
-hoverCube.setScale([1.05, 1.05, 1.05])
-hoverCube.setParent(rootNode)
-
-const closeButton = new MenuBox(gl, {
-  geometry: closeBtnGeometry,
-  name: 'close-btn',
-  // solidColor: [1, 0, 0, 1],
-})
-closeButton.fadeFactor = 0
-closeButton.setPosition([
-  LAYOUT_COLUMN_MAX_WIDTH / 2 - CLOSE_BUTTON_WIDTH,
-  CUBE_HEIGHT / 2 + CLOSE_BUTTON_HEIGHT * 1.25,
-  0,
-])
-closeButton.setParent(rootNode)
-closeButton.updateWorldMatrix()
-closeButton.displayPoster(makeCloseButtonTexture())
 
 // Get and set up UBOs that hold perspective & ortho cameras matrices
 const uboCameraBlockInfo = createUniformBlockInfo(
@@ -357,22 +331,6 @@ fetch(API_ENDPOINT)
     const childrenRowHeightByView: { [key: string]: number } = {}
 
     traverseViewNodes(rootNode, (view) => {
-      if (view instanceof View) {
-        if (view.projectRoleNode) {
-          transparentObjects.push(view.projectRoleNode as SceneNode)
-        }
-        if (view.openLabelNode) {
-          transparentObjects.push(view.openLabelNode as SceneNode)
-        }
-        if (view.projectLabelNode) {
-          transparentObjects.push(view.projectLabelNode)
-        }
-        opaqueObjects.push(view.projectThumbNode)
-      } else {
-        // if (!view.children.length) {
-        //   opaqueObjects.push(view)
-        // }
-      }
       if (view.project) {
         return
       }
@@ -391,15 +349,8 @@ store.subscribe(() => {
     ui: { activeItemUID },
   } = store.getState()
   if (hitView && activeItemUID !== oldActiveItemUID) {
-    const activeView = rootNode.findChild(
-      (child) => (child.uid = activeItemUID),
-    ) as View
-    // console.log(activeView)
-    console.log('------')
-    console.log('activeView', activeView.name)
-    console.log('hitView', hitView.name)
     document.title = hitView.name
-      ? `${hitView.name} | ${BASE_PAGE_TITLE}`
+      ? `${capitalizeFirstLetter(hitView.name)} | ${BASE_PAGE_TITLE}`
       : BASE_PAGE_TITLE
   }
   oldActiveItemUID = activeItemUID
@@ -580,6 +531,7 @@ async function onMouseClick(e: MouseEvent) {
       lookAtTweenEaseName: 'quad_In',
     })
     prevView = hitView
+    // prevView.hover = false
     store.dispatch(setActiveItemUID(hitView.uid))
     store.dispatch(setIsCurrentlyTransitionViews(false))
     return
@@ -695,14 +647,6 @@ async function onMouseClick(e: MouseEvent) {
 
   // console.log(levelIndex, hitView.open)
 
-  closeButton.fadeFactor = 1
-  closeButton.setPosition([
-    LAYOUT_COLUMN_MAX_WIDTH / 2 - CLOSE_BUTTON_WIDTH,
-    newY + CUBE_HEIGHT,
-    newZ - 8,
-  ])
-  closeButton.updateWorldMatrix()
-
   tweenCameraToPosition({
     newX: 0,
     newY,
@@ -718,6 +662,7 @@ async function onMouseClick(e: MouseEvent) {
     hitView = hitView.parentNode as View
   }
   prevView = hitView
+  // prevView.hover = false
   store.dispatch(
     setActiveItemUID(
       isParentActiveUID ? (hitView.parentNode as View).uid : hitView.uid,
@@ -790,54 +735,37 @@ function updateFrame(ts: DOMHighResTimeStamp) {
     ui: { showCubeHighlight },
   } = store.getState()
 
-  // traverseViewNodes(rootNode, (view) => {
-  //   if (hitView && view.uid === hitView.uid) {
-  //     console.log('hitView.uid', view.name)
-  //   }
-  //   if (view.uid === activeItemUID) {
-  //     console.log('activeItemUID', view.name)
-  //   }
-  // })
-  // const isActiveViewProject =
-  //   hitView && hitView.project && hitView.uid !== activeItemUID
   if (hitView && hitView.uid !== activeItemUID && showCubeHighlight) {
-    hoverCube.setPosition(hitView.position)
     store.dispatch(setIsHovering(true))
   } else {
-    hoverCube.setPosition([100, 100, 100])
-    // store.dispatch(setIsHovering(false))
-    store.dispatch(setIsHovering(hitView && hitView.open && isOpenLink))
+    if (hitView && !hitView.project && showCubeHighlight) {
+      store.dispatch(setIsHovering(true))
+    } else {
+      store.dispatch(setIsHovering(hitView && hitView.open && isOpenLink))
+    }
   }
 
   // update camera
-  {
-    const {
-      ui: { mousePos },
-    } = store.getState()
-    const camHoverMoveRadius = hitView && hitView.project ? 1 : 3
-    camMoveRadius += (camHoverMoveRadius - camMoveRadius) * dt
+  const camHoverMoveRadius = hitView && hitView.project ? 1 : 3
+  camMoveRadius += (camHoverMoveRadius - camMoveRadius) * dt
 
-    const mx = (mousePos[0] / innerWidth - 0.5) * camMoveRadius
-    const my = (1.0 - mousePos[1] / innerHeight - 0.5) * camMoveRadius
-    const speed = dt * 2
-    const x = mx + -mx * speed
-    const y = my + -my * speed
-    const z = 0
-    const tx = cameraPositionOffset[0] + x
-    const ty = cameraPositionOffset[1] + y
-    const tz = cameraPositionOffset[2] + z
-    perspectiveCamera.position[0] +=
-      (tx - perspectiveCamera.position[0]) * speed
-    perspectiveCamera.position[1] +=
-      (ty - perspectiveCamera.position[1]) * speed
-    perspectiveCamera.position[2] +=
-      (tz - perspectiveCamera.position[2]) * speed
+  const mx = (mousePos[0] / innerWidth - 0.5) * camMoveRadius
+  const my = (1.0 - mousePos[1] / innerHeight - 0.5) * camMoveRadius
+  const speed = dt * 2
+  const x = mx + -mx * speed
+  const y = my + -my * speed
+  const z = 0
+  const tx = cameraPositionOffset[0] + x
+  const ty = cameraPositionOffset[1] + y
+  const tz = cameraPositionOffset[2] + z
+  perspectiveCamera.position[0] += (tx - perspectiveCamera.position[0]) * speed
+  perspectiveCamera.position[1] += (ty - perspectiveCamera.position[1]) * speed
+  perspectiveCamera.position[2] += (tz - perspectiveCamera.position[2]) * speed
 
-    perspectiveCamera.lookAt[0] = 0
-    perspectiveCamera.lookAt[1] = cameraLookAtOffset[1]
-    perspectiveCamera.lookAt[2] = 0
-    perspectiveCamera.updateViewMatrix().updateProjectionViewMatrix()
-  }
+  perspectiveCamera.lookAt[0] = 0
+  perspectiveCamera.lookAt[1] = cameraLookAtOffset[1]
+  perspectiveCamera.lookAt[2] = 0
+  perspectiveCamera.updateViewMatrix().updateProjectionViewMatrix()
 
   freeOrbitCamera.updateViewMatrix().updateProjectionViewMatrix()
 
@@ -846,9 +774,6 @@ function updateFrame(ts: DOMHighResTimeStamp) {
   gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight)
   gl.clearColor(0.1, 0.1, 0.1, 1.0)
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
-  // gl.enable(gl.BLEND)
-  // gl.blendFunc(gl.SRC_ALPHA, gl.DST_ALPHA)
-  // gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
 
   // UBO for perspective camera projections
   if (uboPerspectiveCamera) {
@@ -893,25 +818,8 @@ function updateFrame(ts: DOMHighResTimeStamp) {
   }
 
   if (uboPerspectiveCamera) {
-    // environment.render()
     floor.render()
-
-    for (let i = 0; i < opaqueObjects.length; i++) {
-      const child = opaqueObjects[i]
-      child.render()
-    }
-    for (let i = 0; i < transparentObjects.length; i++) {
-      const child = transparentObjects[i]
-      child.render()
-    }
-
-    gl.enable(gl.CULL_FACE)
-    gl.cullFace(gl.FRONT)
-    hoverCube.updateWorldMatrix()
-    hoverCube.render()
-    gl.disable(gl.CULL_FACE)
-
-    // closeButton.render()
+    rootNode.render()
   }
 
   debugLines.forEach((rayLine) => rayLine.render())
@@ -1056,29 +964,6 @@ async function tweenCameraToPosition({
   activeTweens.set(lookAtTweenID, lookAtTween)
 
   return Promise.all([posTween.start(), lookAtTween.start()])
-}
-
-function makeCloseButtonTexture() {
-  if (closeButtonTextureCanvas) {
-    return closeButtonTextureCanvas
-  }
-  const c = document.createElement('canvas')
-  c.width = 64
-  c.height = 64
-  const cc = c.getContext('2d')!
-  cc.strokeStyle = 'white'
-  cc.lineWidth = 1
-  const padding = c.width * 0.2
-  cc.beginPath()
-  cc.moveTo(padding, padding)
-  cc.lineTo(c.width - padding, c.height - padding)
-  cc.stroke()
-  cc.beginPath()
-  cc.moveTo(c.width - padding, padding)
-  cc.lineTo(padding, c.height - padding)
-  cc.stroke()
-  closeButtonTextureCanvas = c
-  return closeButtonTextureCanvas
 }
 
 function sizeCanvas() {

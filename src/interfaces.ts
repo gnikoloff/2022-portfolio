@@ -68,6 +68,7 @@ export interface CubeProps {
   geometry: BoxGeometry
   name?: string
   solidColor?: vec4
+  side?: GLenum
 }
 
 export interface ViewProps {
