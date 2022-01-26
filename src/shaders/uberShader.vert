@@ -2,7 +2,8 @@
 
 -- DEFINES_HOOK --
 
-uniform Camera {
+uniform Shared {
+  float time;
   mat4 viewMatrix;
   mat4 projectionViewMatrix;
 };

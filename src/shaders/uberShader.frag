@@ -3,6 +3,12 @@ precision highp float;
 
 -- DEFINES_HOOK --
 
+uniform Shared {
+  float time;
+  mat4 viewMatrix;
+  mat4 projectionViewMatrix;
+};
+
 #ifdef USE_TEXTURE
   uniform sampler2D u_diffuse;
 #endif
@@ -43,6 +49,10 @@ precision highp float;
 
 #ifdef IS_FOG
   in float vFogDepth;
+#endif
+
+#ifdef IS_CUBE
+  uniform float u_loadMixFactor;
 #endif
 
 in vec4 vNormal;
@@ -123,7 +133,9 @@ void main () {
           borderUV.y < maxY &&
           borderUV.y > minY
         ) {
-          finalColor = texture(u_diffuse, uv, -0.5);  
+          vec4 loadColor = vec4(vec3(sin(gl_FragCoord.x * 0.01 - time) * 0.2 + 0.6), 1.0);
+          vec4 texColor = texture(u_diffuse, uv, -0.5);
+          finalColor = mix(loadColor, texColor, u_loadMixFactor);
         } else {
           finalColor = vec4(vec3(0.3), 1.0);
         }

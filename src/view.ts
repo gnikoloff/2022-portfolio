@@ -309,7 +309,7 @@ export default class View extends SceneNode {
     }
     if (this.project?.image) {
       const image = await promisifiedLoadImage(this.project?.image.url)
-      this.projectThumbNode.displayPoster(image)
+      this.projectThumbNode.displayPoster(image, true)
       return
     }
     const canvas = document.createElement('canvas')

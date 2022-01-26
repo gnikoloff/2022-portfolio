@@ -41,6 +41,4 @@ export const TRANSITION_ROW_DURATION = 1000
 export const TRANSITION_ROW_DELAY = 150
 export const TRANSITION_ROW_EASE: easeType = 'exp_Out'
 
-export const CLOSE_BUTTON_WIDTH = 0.5
-export const CLOSE_BUTTON_HEIGHT = 0.5
-export const CLOSE_BUTTON_DEPTH = 0.2
+export const TRANSITION_LOAD_IMAGE_DURATION = 400

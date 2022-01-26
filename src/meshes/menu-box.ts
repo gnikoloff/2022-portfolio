@@ -1,18 +1,21 @@
 import { vec3 } from 'gl-matrix'
 
-import { Drawable, TextureAtlas } from '../lib/hwoa-rang-gl2/dist'
-import { BoundingBox } from '../lib/hwoa-rang-math/dist'
+import { Drawable, TextureAtlas } from '../lib/hwoa-rang-gl2'
+import { BoundingBox } from '../lib/hwoa-rang-math'
+import { Tween } from '../lib/hwoa-rang-anim'
 
 import { CubeProps } from '../interfaces'
 
 import VERTEX_SHADER_SRC from '../shaders/uberShader.vert'
 import FRAGMENT_SHADER_SRC from '../shaders/uberShader.frag'
+import { TRANSITION_LOAD_IMAGE_DURATION } from '../constants'
 
 export default class MenuBox extends Drawable {
   cameraUBOIndex: GLuint
   textureAtlas!: WebGLTexture
   side: GLenum
 
+  isSolidColor = false
   posterLoaded = false
   visible = true
 
@@ -57,6 +60,8 @@ export default class MenuBox extends Drawable {
     }
     super(gl, VERTEX_SHADER_SRC, FRAGMENT_SHADER_SRC, defines)
 
+    this.isSolidColor = !!solidColor
+
     this.name = name
     this.side = side
 
@@ -91,9 +96,14 @@ export default class MenuBox extends Drawable {
       type: gl.FLOAT_VEC2,
     })
 
-    if (!solidColor) {
+    if (!this.isSolidColor) {
       this.setUniform('u_diffuse', {
         type: gl.INT,
+        value: 0,
+      })
+
+      this.setUniform('u_loadMixFactor', {
+        type: gl.FLOAT,
         value: 0,
       })
     }
@@ -105,7 +115,7 @@ export default class MenuBox extends Drawable {
     const aNormalLoc = gl.getAttribLocation(this.program, 'aNormal')
     const aUvLoc = gl.getAttribLocation(this.program, 'aUv')
 
-    if (solidColor) {
+    if (this.isSolidColor) {
       this.setUniform('u_solidColor', {
         type: gl.FLOAT_VEC4,
         value: solidColor as Float32Array,
@@ -154,7 +164,10 @@ export default class MenuBox extends Drawable {
     this.cameraUBOIndex = gl.getUniformBlockIndex(this.program, 'Camera')
   }
 
-  displayPoster(poster: HTMLImageElement | HTMLCanvasElement) {
+  displayPoster(
+    poster: HTMLImageElement | HTMLCanvasElement,
+    tweenFadeIn = false,
+  ) {
     if (!this.name) {
       throw new Error('you need to supply a name in order to display a poster')
     }
@@ -174,6 +187,19 @@ export default class MenuBox extends Drawable {
       'u_textureSize',
       new Float32Array([poster.width, poster.height]),
     )
+
+    if (!this.isSolidColor) {
+      if (tweenFadeIn) {
+        new Tween({
+          durationMS: TRANSITION_LOAD_IMAGE_DURATION,
+          onUpdate: (v) => {
+            this.updateUniform('u_loadMixFactor', v)
+          },
+        }).start()
+      } else {
+        this.updateUniform('u_loadMixFactor', 1)
+      }
+    }
 
     this.posterLoaded = true
   }

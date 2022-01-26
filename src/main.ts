@@ -62,15 +62,11 @@ import {
   CAMERA_FAR,
   CAMERA_LEVEL_Z_OFFSET,
   CAMERA_NEAR,
-  CLOSE_BUTTON_DEPTH,
-  CLOSE_BUTTON_HEIGHT,
-  CLOSE_BUTTON_WIDTH,
   CUBE_DEPTH,
   CUBE_HEIGHT,
   CUBE_WIDTH,
   LABEL_HEIGHT,
   LABEL_WIDTH,
-  LAYOUT_COLUMN_MAX_WIDTH,
   LAYOUT_LEVEL_Y_OFFSET,
   OPEN_BUTTON_HEIGHT,
   OPEN_BUTTON_WIDTH,
@@ -117,6 +113,7 @@ let oldActiveItemUID: string
 let prevHoverView!: View
 let openButtonHoverTransition = false
 
+const timeAsFloat32 = new Float32Array(1)
 const cameraPositionOffset = vec3.fromValues(0, 0, CAMERA_BASE_Z_OFFSET)
 const cameraLookAtOffset = vec3.create()
 const activeTweens: Map<string, Tween> = new Map()
@@ -128,7 +125,7 @@ const floor = new Floor(gl)
 boxesRootNode.setParent(rootNode)
 
 // Init texture atlas
-TextureAtlas.debugMode = true
+TextureAtlas.debugMode = false
 TextureAtlas.gl = gl
 // TextureAtlas.textureFormat = gl.RGBA
 
@@ -196,20 +193,16 @@ const hoverCube = new MenuBox(gl, {
 })
 
 // Get and set up UBOs that hold perspective & ortho cameras matrices
-const uboCameraBlockInfo = createUniformBlockInfo(
+const sharedUBOBlockInfo = createUniformBlockInfo(
   gl,
   hoverCube.program,
-  'Camera',
-  ['viewMatrix', 'projectionViewMatrix'],
+  'Shared',
+  ['time', 'viewMatrix', 'projectionViewMatrix'],
 )
-const uboPerspectiveCamera = createAndBindUBOToBase(
-  gl,
-  uboCameraBlockInfo.blockSize,
-  0,
-)!
+const sharedUBO = createAndBindUBOToBase(gl, sharedUBOBlockInfo.blockSize, 0)!
 const uboOrthographicCamera = createAndBindUBOToBase(
   gl,
-  uboCameraBlockInfo.blockSize,
+  sharedUBOBlockInfo.blockSize,
   1,
 )!
 
@@ -766,24 +759,42 @@ function updateFrame(ts: DOMHighResTimeStamp) {
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 
   // UBO for perspective camera projections
-  if (uboPerspectiveCamera) {
+  if (sharedUBO) {
     const viewMatrix = OPTIONS.cameraFreeMode
       ? freeOrbitCamera.viewMatrix
       : perspectiveCamera.viewMatrix
     const projViewMatix = OPTIONS.cameraFreeMode
       ? freeOrbitCamera.projectionViewMatrix
       : perspectiveCamera.projectionViewMatrix
-    gl.bindBuffer(gl.UNIFORM_BUFFER, uboPerspectiveCamera)
-    gl.bufferSubData(gl.UNIFORM_BUFFER, 0, viewMatrix as ArrayBufferView, 0)
+    gl.bindBuffer(gl.UNIFORM_BUFFER, sharedUBO)
+
+    // time
+    timeAsFloat32[0] = ts
     gl.bufferSubData(
       gl.UNIFORM_BUFFER,
-      16 * Float32Array.BYTES_PER_ELEMENT,
+      sharedUBOBlockInfo.uniforms.time.offset,
+      timeAsFloat32,
+      0,
+    )
+
+    // view matrix
+    gl.bufferSubData(
+      gl.UNIFORM_BUFFER,
+      sharedUBOBlockInfo.uniforms.viewMatrix.offset,
+      viewMatrix as ArrayBufferView,
+      0,
+    )
+
+    // projection + view matrix
+    gl.bufferSubData(
+      gl.UNIFORM_BUFFER,
+      sharedUBOBlockInfo.uniforms.projectionViewMatrix.offset,
       projViewMatix as ArrayBufferView,
       0,
     )
   }
 
-  // UBO for orthographic camera projections
+  // UBO for orthographic camera projection
   if (uboOrthographicCamera) {
     const viewMatrix = orthographicCamera.viewMatrix
     const projViewMatix = orthographicCamera.projectionViewMatrix
@@ -791,7 +802,7 @@ function updateFrame(ts: DOMHighResTimeStamp) {
     gl.bufferSubData(gl.UNIFORM_BUFFER, 0, viewMatrix as ArrayBufferView, 0)
     gl.bufferSubData(
       gl.UNIFORM_BUFFER,
-      16 * Float32Array.BYTES_PER_ELEMENT,
+      sharedUBOBlockInfo.uniforms.projectionViewMatrix.offset,
       projViewMatix as ArrayBufferView,
       0,
     )
@@ -807,7 +818,7 @@ function updateFrame(ts: DOMHighResTimeStamp) {
     cameraDebugger.preRender(freeOrbitCamera).render()
   }
 
-  if (uboPerspectiveCamera) {
+  if (sharedUBO) {
     floor.render()
     rootNode.render()
   }
