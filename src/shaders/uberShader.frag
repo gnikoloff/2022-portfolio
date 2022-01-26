@@ -151,6 +151,6 @@ void main () {
   #endif
 
   #ifdef SUPPORTS_FADING
-    finalColor.rgb = mix(vec3(0.1), finalColor.rgb, u_fadeMixFactor);
+    finalColor.a = mix(0.1, finalColor.a, u_fadeMixFactor);
   #endif
 }

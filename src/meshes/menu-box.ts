@@ -1,20 +1,20 @@
 import { vec3 } from 'gl-matrix'
 
-import { Drawable, TextureAtlas } from '../lib/hwoa-rang-gl2'
-import { BoundingBox } from '../lib/hwoa-rang-math'
+import { Drawable, TextureAtlas } from '../lib/hwoa-rang-gl2/dist'
+import { BoundingBox } from '../lib/hwoa-rang-math/dist'
 
 import { CubeProps } from '../interfaces'
 
 import VERTEX_SHADER_SRC from '../shaders/uberShader.vert'
 import FRAGMENT_SHADER_SRC from '../shaders/uberShader.frag'
 
-export default class Cube extends Drawable {
+export default class MenuBox extends Drawable {
   cameraUBOIndex: GLuint
   textureAtlas!: WebGLTexture
 
   posterLoaded = false
 
-  #fadeFactor: number
+  #fadeFactor = 0
 
   get AABB(): BoundingBox {
     const min = vec3.clone(this.boundingBox.min)
@@ -184,10 +184,17 @@ export default class Cube extends Drawable {
     gl.useProgram(this.program)
     this.uploadWorldMatrix()
 
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
+    gl.enable(gl.BLEND)
+    // gl.disable(gl.DEPTH_TEST)
+
     gl.activeTexture(gl.TEXTURE0)
     gl.bindTexture(gl.TEXTURE_2D, this.textureAtlas)
 
     gl.bindVertexArray(this.vao)
     gl.drawElements(gl.TRIANGLES, this.vertexCount, gl.UNSIGNED_SHORT, 0)
+
+    gl.disable(gl.BLEND)
+    // gl.enable(gl.DEPTH_TEST)
   }
 }

@@ -43,6 +43,7 @@ const views = (state = initialState, action: ActionPayload) => {
       }
     }
     case SET_ACTIVE_ITEM_UID: {
+      console.log('setting')
       return {
         ...state,
         activeItemUID: action.payload,

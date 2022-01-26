@@ -18,7 +18,7 @@ import {
 
 import { promisifiedLoadImage } from './helpers'
 
-import Cube from './meshes/cube'
+import Cube from './meshes/menu-box'
 import Label from './meshes/label'
 
 import { Project, ViewProps } from './interfaces'

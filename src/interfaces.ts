@@ -58,6 +58,12 @@ export interface LabelProps extends QuadProps {
   supportHover?: boolean
 }
 
+export interface EnvBoxProps {
+  width?: number
+  height?: number
+  depth?: number
+}
+
 export interface CubeProps {
   geometry: BoxGeometry
   name?: string

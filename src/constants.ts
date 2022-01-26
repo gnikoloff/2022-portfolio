@@ -9,6 +9,7 @@ export const LAYOUT_ITEMS_PER_ROW = 4
 export const LAYOUT_LEVEL_Y_OFFSET = 10
 export const LAYOUT_LEVEL_Z_OFFSET = 5
 
+export const CAMERA_BASE_Z_OFFSET = 8
 export const CAMERA_LEVEL_Z_OFFSET = 5
 
 export const CUBE_WIDTH = 3
@@ -26,7 +27,7 @@ export const OPEN_BUTTON_MARGIN_Y = 0.3
 export const OPEN_BUTTON_MARGIN_Z = 0.3
 
 export const CAMERA_NEAR = 0.1
-export const CAMERA_FAR = 30
+export const CAMERA_FAR = 60
 export const CAMERA_FOCUS_OFFSET_Z = 5
 
 export const TRANSITION_CAMERA_DURATION = 1000

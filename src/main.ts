@@ -1,10 +1,12 @@
 import { vec3 } from 'gl-matrix'
 import * as dat from 'dat.gui'
+
 import {
   CameraTransitionProps,
   Project,
   RowTransitionProps,
 } from './interfaces'
+
 import store from './store'
 
 import {
@@ -43,9 +45,9 @@ import {
   clamp,
 } from './lib/hwoa-rang-math'
 
-import { easeType, Tween } from './lib/hwoa-rang-anim'
+import { Tween } from './lib/hwoa-rang-anim'
 
-import Cube from './meshes/cube'
+import MenuBox from './meshes/menu-box'
 import View from './view'
 import Line from './meshes/line'
 
@@ -54,6 +56,7 @@ import './style.css'
 import {
   API_ENDPOINT,
   BASE_PAGE_TITLE,
+  CAMERA_BASE_Z_OFFSET,
   CAMERA_FAR,
   CAMERA_LEVEL_Z_OFFSET,
   CAMERA_NEAR,
@@ -76,6 +79,7 @@ import {
   TRANSITION_ROW_EASE,
 } from './constants'
 import CameraDebug from './lib/hwoa-rang-gl2/src/extra/camera-debug'
+import EnvironmentBox from './meshes/environment-box'
 
 const OPTIONS = {
   cameraFreeMode: false,
@@ -91,9 +95,17 @@ gui.add(OPTIONS, 'cameraFreeMode').onChange((v) => {
   }
 })
 
+const $app = document.getElementById('app')!
+const $canvas: HTMLCanvasElement = document.createElement('canvas')
+sizeCanvas()
+$app.appendChild($canvas)
+
+const gl: WebGL2RenderingContext = $canvas.getContext('webgl2')!
+
 let oldTime = 0
 let prevView!: View
 let hitView!: View
+let oldActiveItemUID: string
 let prevHoverView!: View
 let openButtonHoverTransition = false
 let closeButtonTextureCanvas: HTMLCanvasElement
@@ -102,16 +114,10 @@ const activeTweens: Map<string, Tween> = new Map()
 const opaqueObjects: SceneNode[] = []
 const transparentObjects: SceneNode[] = []
 const debugLines: Line[] = []
-const rootNode = new SceneNode()
-const boxesRootNode = new SceneNode()
+const rootNode = new SceneNode('rootNode')
+const boxesRootNode = new SceneNode('boxesRootNode')
+const environment = new EnvironmentBox(gl)
 boxesRootNode.setParent(rootNode)
-
-const $app = document.getElementById('app')!
-const $canvas: HTMLCanvasElement = document.createElement('canvas')
-sizeCanvas()
-$app.appendChild($canvas)
-
-const gl: WebGL2RenderingContext = $canvas.getContext('webgl2')!
 
 // Init texture atlas
 TextureAtlas.debugMode = false
@@ -134,7 +140,7 @@ const perspectiveCamera = new PerspectiveCamera(
   CAMERA_NEAR,
   CAMERA_FAR,
 )
-perspectiveCamera.position = [0, 0, 8]
+perspectiveCamera.position = [0, 0, CAMERA_BASE_Z_OFFSET]
 perspectiveCamera.lookAt = [0, 0, 0]
 
 const cameraDebugger = new CameraDebug(gl, perspectiveCamera)
@@ -182,7 +188,7 @@ const closeBtnGeometry = createBox({
 })
 
 // Hover cube
-const hoverCube = new Cube(gl, {
+const hoverCube = new MenuBox(gl, {
   geometry: cubeGeometry,
   solidColor: [0, 0, 1, 1],
 })
@@ -190,7 +196,7 @@ hoverCube.setPosition([-1, 0, 0])
 hoverCube.setScale([1.05, 1.05, 1.05])
 hoverCube.setParent(rootNode)
 
-const closeButton = new Cube(gl, {
+const closeButton = new MenuBox(gl, {
   geometry: closeBtnGeometry,
   name: 'close-btn',
   // solidColor: [1, 0, 0, 1],
@@ -343,36 +349,24 @@ fetch(API_ENDPOINT)
     positionNodeWithinLevel(boxesRootNode, 0, -1)
   })
 
-// store.subscribe(() => {
-//   const {
-//     ui: { activeItemUID },
-//   } = store.getState()
-//   if (hitView && activeItemUID !== oldActiveItemUID) {
-//     let parentNode = hitView.parentNode
-//     let urlPath = hitView.project ? hitView.project.uid : hitView.name
-//     while (parentNode) {
-//       const parent = parentNode as View
-//       const fragment = parent.project ? parent.project.uid : parent.name
-
-//       parentNode = parentNode.parentNode
-//       if (!fragment) {
-//         continue
-//       }
-//       urlPath = `${fragment}/${urlPath}`
-//     }
-//     if (urlPath) {
-//       document.title = `${hitView.name} | ${BASE_PAGE_TITLE}`
-//       const newURL = `/${urlPath.toLowerCase()}`
-
-//       history.pushState({}, '', newURL)
-//     } else {
-//       document.title = BASE_PAGE_TITLE
-//       console.log('1 pushState')
-//       history.pushState({}, '', '/')
-//     }
-//   }
-//   oldActiveItemUID = activeItemUID
-// })
+store.subscribe(() => {
+  const {
+    ui: { activeItemUID },
+  } = store.getState()
+  if (hitView && activeItemUID !== oldActiveItemUID) {
+    const activeView = rootNode.findChild(
+      (child) => (child.uid = activeItemUID),
+    ) as View
+    // console.log(activeView)
+    console.log('------')
+    console.log('activeView', activeView.name)
+    console.log('hitView', hitView.name)
+    document.title = hitView.name
+      ? `${hitView.name} | ${BASE_PAGE_TITLE}`
+      : BASE_PAGE_TITLE
+  }
+  oldActiveItemUID = activeItemUID
+})
 
 document.body.addEventListener('mousemove', onMouseMove)
 document.body.addEventListener('click', onMouseClick)
@@ -454,7 +448,6 @@ async function onMouseClick(e: MouseEvent) {
       return
     }
 
-    store.dispatch(setActiveItemUID(oldView.uid))
     hitView = oldView.parentNode as View
 
     toggleChildrenRowVisibility({
@@ -477,7 +470,7 @@ async function onMouseClick(e: MouseEvent) {
       levelIndex === 0
         ? 0
         : -rowHeight / 2 - LAYOUT_LEVEL_Y_OFFSET * levelIndex + CUBE_HEIGHT
-    const newZ = 8 + levelIndex * CAMERA_LEVEL_Z_OFFSET
+    const newZ = CAMERA_BASE_Z_OFFSET + levelIndex * CAMERA_LEVEL_Z_OFFSET
 
     // debugger
 
@@ -500,6 +493,7 @@ async function onMouseClick(e: MouseEvent) {
   }
 
   if (hitView.project) {
+    // debugger
     if (hitView.open) {
       store.dispatch(setIsCurrentlyTransitionViews(false))
       return
@@ -551,6 +545,7 @@ async function onMouseClick(e: MouseEvent) {
       // hitView.position[1],
       // hitView.position[2] - 100,
     })
+    prevView = hitView
     store.dispatch(setActiveItemUID(hitView.uid))
     store.dispatch(setIsCurrentlyTransitionViews(false))
     return
@@ -559,6 +554,9 @@ async function onMouseClick(e: MouseEvent) {
   const activeLevelIdx = hitView.levelIndex - 2
   const prevLevelIdx = oldView ? oldView.levelIndex - 2 : 0
   const levelDiff = activeLevelIdx - prevLevelIdx
+
+  let levelOffset = 0
+  let isParentActiveUID = false
 
   if (levelDiff === 0) {
     hitView.open = hitView === oldView ? !hitView.open : true
@@ -602,6 +600,19 @@ async function onMouseClick(e: MouseEvent) {
     hitView.open = !!hitView.findChild((child) => child === prevView)
     if (prevView) {
       prevView.open = false
+      levelOffset = hitView.findChild((child) => child.uid === prevView.uid)
+        ? 0
+        : 1
+
+      if (
+        prevView.project &&
+        !hitView.project &&
+        prevView.parentNode === hitView
+      ) {
+        // hitView = hitView.parentNode as View
+        levelOffset = -1
+        isParentActiveUID = true
+      }
     }
     const viewsToClose: View[] = []
     traverseViewNodes(rootNode, (view) => {
@@ -629,16 +640,24 @@ async function onMouseClick(e: MouseEvent) {
   // console.log('----- end')
 
   const levelIndex = hitView.levelIndex - 2 + (hitView.open ? 1 : 0)
-  const rowHeight = hitView.open
-    ? childrenRowHeights[hitView.uid]
-    : childrenRowHeights[(hitView.parentNode as View).uid]
-  // console.log('hitView.open', hitView.open)
+  console.log({ levelOffset, levelIndex })
+  const rowHeight =
+    levelOffset === -1
+      ? childrenRowHeights[(hitView.parentNode as View).uid]
+      : levelOffset === 1
+      ? childrenRowHeights[hitView.uid]
+      : hitView.open
+      ? childrenRowHeights[hitView.uid]
+      : childrenRowHeights[(hitView.parentNode as View).uid]
 
   const newY =
     levelIndex === 0
       ? 0
-      : -rowHeight / 2 - LAYOUT_LEVEL_Y_OFFSET * levelIndex + CUBE_HEIGHT
-  const newZ = 8 + levelIndex * CAMERA_LEVEL_Z_OFFSET
+      : -rowHeight / 2 -
+        LAYOUT_LEVEL_Y_OFFSET * (levelIndex + levelOffset) +
+        CUBE_HEIGHT
+  const newZ =
+    CAMERA_BASE_Z_OFFSET + (levelIndex + levelOffset) * CAMERA_LEVEL_Z_OFFSET
 
   // console.log(levelIndex, hitView.open)
 
@@ -660,8 +679,16 @@ async function onMouseClick(e: MouseEvent) {
   })
 
   // console.log({ newX, newY, newZ })
-
-  store.dispatch(setActiveItemUID(hitView.uid))
+  console.log({ isParentActiveUID })
+  if (isParentActiveUID) {
+    hitView = hitView.parentNode as View
+  }
+  prevView = hitView
+  store.dispatch(
+    setActiveItemUID(
+      isParentActiveUID ? (hitView.parentNode as View).uid : hitView.uid,
+    ),
+  )
   store.dispatch(setIsCurrentlyTransitionViews(false))
 }
 
@@ -727,6 +754,12 @@ function updateFrame(ts: DOMHighResTimeStamp) {
   const {
     ui: { showCubeHighlight },
   } = store.getState()
+
+  // traverseViewNodes(rootNode, (child) => {
+  //   if (child.uid === activeItemUID) {
+  //     console.log(activeItemUID, child.name)
+  //   }
+  // })
 
   if (hitView && hitView.uid !== activeItemUID && showCubeHighlight) {
     hoverCube.setPosition(hitView.position)
@@ -795,12 +828,12 @@ function updateFrame(ts: DOMHighResTimeStamp) {
   gl.clearColor(0.1, 0.1, 0.1, 1.0)
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 
-  cameraDebugger
-    .preRender(OPTIONS.cameraFreeMode ? freeOrbitCamera : perspectiveCamera)
-    .render()
+  if (OPTIONS.cameraFreeMode) {
+    cameraDebugger.preRender(freeOrbitCamera).render()
+  }
 
   if (uboPerspectiveCamera) {
-    // rootNode.render()
+    // environment.render()
 
     for (let i = 0; i < opaqueObjects.length; i++) {
       const child = opaqueObjects[i]
@@ -861,6 +894,16 @@ async function toggleChildrenRowVisibility({
       child.visible = true
     }
   }
+  let childTweenStaggerMS = 0
+  if (visible) {
+    if (views.length < 4) {
+      childTweenStaggerMS = 130
+    } else if (views.length < 4) {
+      childTweenStaggerMS = 100
+    } else {
+      childTweenStaggerMS = 75
+    }
+  }
   return await Promise.all(
     views.map((child, i): Promise<null> => {
       return new Promise((resolve) => {
@@ -872,7 +915,8 @@ async function toggleChildrenRowVisibility({
         }
         tween = new Tween({
           durationMS,
-          delayMS: TRANSITION_ROW_DELAY + (visible ? i * 50 : 0),
+          delayMS:
+            TRANSITION_ROW_DELAY + (visible ? i * childTweenStaggerMS : 0),
           easeName,
           onUpdate: (v) => {
             child.visibilityTweenFactor = visible ? v : 1 - v
