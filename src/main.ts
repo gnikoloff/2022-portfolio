@@ -678,24 +678,18 @@ function updateFrame(ts: DOMHighResTimeStamp) {
 
   requestAnimationFrame(updateFrame)
 
-  // console.log(activeTweens)
-
-  // console.log(perspectiveCamera.position, perspectiveCamera.lookAt)
-
-  // console.log(freeOrbitCamera.position)
-
   const {
-    ui: { mousePos, activeItemUID },
+    ui: { mousePos, activeItemUID, showCubeHighlight, backgroundColor },
   } = store.getState()
+
   const normX = (mousePos[0] / innerWidth) * 2 - 1
   const normY = 2 - (mousePos[1] / innerHeight) * 2 - 1
-  const { rayStart, rayEnd, rayDirection } = projectMouseToWorldSpace(
+  const { rayStart, rayDirection } = projectMouseToWorldSpace(
     [normX, normY],
     OPTIONS.cameraFreeMode ? freeOrbitCamera : perspectiveCamera,
   )
 
   const [hitView, isOpenLink] = getHoveredSceneNode(rayStart, rayDirection)
-  // debugLines.push(new Line(gl, rayStart, rayDirection))
 
   if (hitView) {
     if (isOpenLink) {
@@ -730,10 +724,6 @@ function updateFrame(ts: DOMHighResTimeStamp) {
     }
   }
   prevHoverView = hitView
-
-  const {
-    ui: { showCubeHighlight },
-  } = store.getState()
 
   if (hitView && hitView.uid !== activeItemUID && showCubeHighlight) {
     store.dispatch(setIsHovering(true))
@@ -810,7 +800,7 @@ function updateFrame(ts: DOMHighResTimeStamp) {
   gl.bindBuffer(gl.UNIFORM_BUFFER, null)
 
   // gl.bindFramebuffer(gl.FRAMEBUFFER, fboCopy.framebuffer)
-  gl.clearColor(0.1, 0.1, 0.1, 1.0)
+  gl.clearColor(...(backgroundColor as [number, number, number, number]))
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 
   if (OPTIONS.cameraFreeMode) {

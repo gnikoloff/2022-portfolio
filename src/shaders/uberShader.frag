@@ -153,9 +153,8 @@ void main () {
   #endif
 
   #ifdef IS_FOG
-    vec4 fogColor = vec4(0.1, 0.1, 0.1, 1.0);
     float fogAmount = smoothstep(0.1, 30.0, vFogDepth);
-    finalColor = mix(finalColor, fogColor, fogAmount);
+    finalColor = mix(finalColor, BACKGROUND_COLOR, fogAmount);
   #endif
 
   #ifdef SUPPORTS_FADING
