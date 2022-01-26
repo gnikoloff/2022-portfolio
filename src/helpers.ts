@@ -160,3 +160,7 @@ export const traverseViewNodes = (
     callback(child)
   })
 }
+
+export const capitalizeFirstLetter = (v: string): string => {
+  return `${v.charAt(0).toUpperCase()}${v.slice(1)}`
+}
