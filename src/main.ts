@@ -128,7 +128,7 @@ const floor = new Floor(gl)
 boxesRootNode.setParent(rootNode)
 
 // Init texture atlas
-TextureAtlas.debugMode = false
+TextureAtlas.debugMode = true
 TextureAtlas.gl = gl
 // TextureAtlas.textureFormat = gl.RGBA
 

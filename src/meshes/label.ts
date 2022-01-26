@@ -5,6 +5,7 @@ import { promisifiedLoadImage } from '../helpers'
 
 import labelTransitionImageURL from '../assets/label-transition.png'
 import labelTransitionImageURL2 from '../assets/label-transition2.png'
+import { FONT_STACK } from '../constants'
 
 export default class Label extends Quad {
   label: string
@@ -34,11 +35,11 @@ export default class Label extends Quad {
     // ctx.strokeStyle = 'red'
     // ctx.strokeRect(0, 0, canvas.width, canvas.height)
     const stringToRender = label.trim()
-    ctx.font = `${refFontSize}px Helvetica`
+    ctx.font = `${refFontSize}px ${FONT_STACK}`
     const textWidth = ctx.measureText(stringToRender).width
     const widthDelta = refFontSize / textWidth
     const fontSize = refFontSize * widthDelta
-    ctx.font = `${fontSize} Helvetica`
+    ctx.font = `${fontSize} ${FONT_STACK}`
     ctx.fillStyle = textColor
     ctx.textBaseline = 'middle'
     const paddingLeft = 42

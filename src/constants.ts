@@ -4,6 +4,9 @@ export const API_ENDPOINT = 'http://192.168.2.123:3001/api'
 
 export const BASE_PAGE_TITLE = document.title
 
+export const FONT_STACK =
+  '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"'
+
 export const LAYOUT_COLUMN_MAX_WIDTH = 14
 export const LAYOUT_ITEMS_PER_ROW = 4
 export const LAYOUT_LEVEL_Y_OFFSET = 9

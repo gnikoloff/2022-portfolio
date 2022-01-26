@@ -9,6 +9,7 @@ import {
   CUBE_DEPTH,
   CUBE_HEIGHT,
   CUBE_WIDTH,
+  FONT_STACK,
   LABEL_MARGIN_Y,
   LABEL_MARGIN_Z,
   OPEN_BUTTON_MARGIN_Y,
@@ -265,7 +266,7 @@ export default class View extends SceneNode {
         label: project.tech || '',
         // texWidth: 400,
         fontSize: 50,
-        textColor: '#888',
+        textColor: '#bbb',
         transparent: true,
       })
       this.projectRoleNode.visible = false
@@ -315,7 +316,7 @@ export default class View extends SceneNode {
     canvas.width = 600
     canvas.height = 300
     const ctx = canvas.getContext('2d')!
-    ctx.font = '100px Helvetica'
+    ctx.font = `100px ${FONT_STACK}`
     ctx.fillStyle = 'white'
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
