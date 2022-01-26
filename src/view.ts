@@ -38,9 +38,9 @@ export default class View extends SceneNode {
   tweenAnimMode: 0 | 1 = 0 // 0 - reveal, 1 - hide animation mode
 
   static ROTATION_X_AXIS_ON_OPEN = Math.PI
-  static ROTATION_X_AXIS_ON_CLOSE = Math.PI * 0.1
+  static ROTATION_X_AXIS_ON_CLOSE = Math.PI
   static DEFORM_ANGLE_ON_OPEN = Math.PI * 0.5
-  static DEFORM_ANGLE_ON_CLOSE = Math.PI * -0.4
+  static DEFORM_ANGLE_ON_CLOSE = Math.PI * 0.6
   static FADED_OUT_FACTOR = 0.2
   static MESH_WRAPPER_NAME = 'mesh-wrapper'
 
@@ -110,12 +110,13 @@ export default class View extends SceneNode {
         : View.DEFORM_ANGLE_ON_CLOSE
     const rotation = startRotationAngle - startRotationAngle * v
     const deformAngle = startRotationAngle - startDeformAngle * v
-    const scale = v
+    const scale = this.tweenAnimMode === 1 ? v : 1
     const currRotationY = this.projectThumbNode.rotation[1]
     const currRotationZ = this.projectThumbNode.rotation[2]
     this.projectThumbNode
       .setScale([scale, scale, scale])
       .setRotation([rotation, currRotationY, currRotationZ])
+    this.projectThumbNode.fadeFactor = v
     this.projectThumbNode.deformationAngle =
       View.DEFORM_ANGLE_ON_OPEN - deformAngle
     if (this.projectLabelNode) {

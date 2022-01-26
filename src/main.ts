@@ -36,6 +36,7 @@ import {
   createAndBindUBOToBase,
   createUniformBlockInfo,
   TextureAtlas,
+  CameraDebug,
 } from './lib/hwoa-rang-gl2'
 
 import {
@@ -72,13 +73,15 @@ import {
   LAYOUT_LEVEL_Y_OFFSET,
   OPEN_BUTTON_HEIGHT,
   OPEN_BUTTON_WIDTH,
-  TRANSITION_CAMERA_DURATION,
-  TRANSITION_CAMERA_EASE,
+  TRANSITION_CAMERA_LOOKAT_DURATION,
+  TRANSITION_CAMERA_LOOKAT_EASE,
+  TRANSITION_CAMERA_POSITION_DURATION,
+  TRANSITION_CAMERA_POSITION_EASE,
   TRANSITION_ROW_DELAY,
   TRANSITION_ROW_DURATION,
   TRANSITION_ROW_EASE,
 } from './constants'
-import CameraDebug from './lib/hwoa-rang-gl2/src/extra/camera-debug'
+
 import EnvironmentBox from './meshes/environment-box'
 
 const OPTIONS = {
@@ -100,9 +103,12 @@ const $canvas: HTMLCanvasElement = document.createElement('canvas')
 sizeCanvas()
 $app.appendChild($canvas)
 
-const gl: WebGL2RenderingContext = $canvas.getContext('webgl2')!
+const gl: WebGL2RenderingContext = $canvas.getContext('webgl2', {
+  antialias: true,
+})!
 
 let oldTime = 0
+let camMoveRadius = 3
 let prevView!: View
 let hitView!: View
 let oldActiveItemUID: string
@@ -110,13 +116,15 @@ let prevHoverView!: View
 let openButtonHoverTransition = false
 let closeButtonTextureCanvas: HTMLCanvasElement
 
+const cameraPositionOffset = vec3.fromValues(0, 0, CAMERA_BASE_Z_OFFSET)
+const cameraLookAtOffset = vec3.create()
 const activeTweens: Map<string, Tween> = new Map()
 const opaqueObjects: SceneNode[] = []
 const transparentObjects: SceneNode[] = []
 const debugLines: Line[] = []
 const rootNode = new SceneNode('rootNode')
 const boxesRootNode = new SceneNode('boxesRootNode')
-const environment = new EnvironmentBox(gl)
+// const environment = new EnvironmentBox(gl)
 boxesRootNode.setParent(rootNode)
 
 // Init texture atlas
@@ -544,13 +552,10 @@ async function onMouseClick(e: MouseEvent) {
       newX: hitView.position[0],
       newY: hitView.position[1],
       newZ: hitView.position[2] + 5,
-      // lookAtTweenDurationMS: 1200,
-      lookAtDelayMS: 250,
-      lookAtTweenEaseName: 'exp_Out',
-      // lookAtDelayMS: 150,
-      // hitView.position[0],
-      // hitView.position[1],
-      // hitView.position[2] - 100,
+      positionTweenDurationMS: 600,
+      positionTweenEaseName: 'quad_InOut',
+      lookAtTweenDurationMS: 900,
+      lookAtTweenEaseName: 'quad_In',
     })
     prevView = hitView
     store.dispatch(setActiveItemUID(hitView.uid))
@@ -783,24 +788,37 @@ function updateFrame(ts: DOMHighResTimeStamp) {
 
   // update camera
   {
-    // const {
-    //   ui: { mousePos },
-    // } = store.getState()
-    // const mx = mousePos[0] / innerWidth - 0.5
-    // const my = mousePos[1] / innerHeight - 0.5
-    // const camX = perspectiveCamera.position[0]
-    // const camY = perspectiveCamera.position[1]
-    // // const camZ = perspectiveCamera.position[2]
-    // const speed = dt * 0.001 * 2
-    // const x = camX + (mx - camX) * speed * 2
-    // const y = camY + (my - camY) * speed
-    // const z = perspectiveCamera.position[2]
-    // // console.log(mx, my)
-    // perspectiveCamera.position = [x, y, z]
+    const {
+      ui: { mousePos },
+    } = store.getState()
+    const camHoverMoveRadius = hitView && hitView.project ? 1 : 3
+    camMoveRadius += (camHoverMoveRadius - camMoveRadius) * (dt * 0.001)
+
+    const mx = (mousePos[0] / innerWidth - 0.5) * camMoveRadius
+    const my = (1.0 - mousePos[1] / innerHeight - 0.5) * camMoveRadius
+    const speed = dt * 0.001 * 2
+    const x = mx + -mx * speed
+    const y = my + -my * speed
+    const z = 0
+    const tx = cameraPositionOffset[0] + x
+    const ty = cameraPositionOffset[1] + y
+    const tz = cameraPositionOffset[2] + z
+    perspectiveCamera.position[0] +=
+      (tx - perspectiveCamera.position[0]) * speed
+    perspectiveCamera.position[1] +=
+      (ty - perspectiveCamera.position[1]) * speed
+    perspectiveCamera.position[2] +=
+      (tz - perspectiveCamera.position[2]) * speed
+
+    console.log(cameraPositionOffset[1], y)
+
+    perspectiveCamera.lookAt[0] = 0
+    perspectiveCamera.lookAt[1] = cameraLookAtOffset[1]
+    perspectiveCamera.lookAt[2] = 0
+    perspectiveCamera.updateViewMatrix().updateProjectionViewMatrix()
   }
 
   freeOrbitCamera.updateViewMatrix().updateProjectionViewMatrix()
-  perspectiveCamera.updateViewMatrix().updateProjectionViewMatrix()
 
   gl.enable(gl.DEPTH_TEST)
 
@@ -904,6 +922,7 @@ async function toggleChildrenRowVisibility({
     if (visible) {
       child.visible = true
     }
+    child.tweenAnimMode = visible ? 0 : 1
   }
   let childTweenStaggerMS = 0
   if (visible) {
@@ -952,49 +971,59 @@ async function tweenCameraToPosition({
   newY,
   newZ,
   positionDelayMS = 0,
-  positionTweenDurationMS = TRANSITION_CAMERA_DURATION,
-  positionTweenEaseName = TRANSITION_CAMERA_EASE,
+  positionTweenDurationMS = TRANSITION_CAMERA_POSITION_DURATION,
+  positionTweenEaseName = TRANSITION_CAMERA_POSITION_EASE,
   newLookAtX = newX,
   newLookAtY = newY,
   newLookAtZ = newZ - 100,
   lookAtDelayMS = 0,
-  lookAtTweenDurationMS = TRANSITION_CAMERA_DURATION,
-  lookAtTweenEaseName = TRANSITION_CAMERA_EASE,
+  lookAtTweenDurationMS = TRANSITION_CAMERA_LOOKAT_DURATION,
+  lookAtTweenEaseName = TRANSITION_CAMERA_LOOKAT_EASE,
 }: CameraTransitionProps) {
-  return Promise.all([
-    promisifiedTween({
-      durationMS: positionTweenDurationMS,
-      delayMS: positionDelayMS,
-      easeName: positionTweenEaseName,
-      onUpdate: (v) => {
-        perspectiveCamera.position[0] +=
-          (newX - perspectiveCamera.position[0]) * v
-        perspectiveCamera.position[1] +=
-          (newY - perspectiveCamera.position[1]) * v
-        perspectiveCamera.position[2] +=
-          (newZ - perspectiveCamera.position[2]) * v
+  const posTweenID = 'camera-pos'
+  let posTween: Tween | undefined
+  if ((posTween = activeTweens.get(posTweenID))) {
+    posTween.stop()
+    activeTweens.delete(posTweenID)
+  }
+  posTween = new Tween({
+    durationMS: positionTweenDurationMS,
+    delayMS: positionDelayMS,
+    easeName: positionTweenEaseName,
+    onUpdate: (v) => {
+      cameraPositionOffset[0] += (newX - cameraPositionOffset[0]) * v
+      cameraPositionOffset[1] += (newY - cameraPositionOffset[1]) * v
+      cameraPositionOffset[2] += (newZ - cameraPositionOffset[2]) * v
 
-        perspectiveCamera.updateViewMatrix().updateProjectionViewMatrix()
-      },
-    }),
-    promisifiedTween({
-      durationMS: lookAtTweenDurationMS,
-      delayMS: lookAtDelayMS,
-      easeName: lookAtTweenEaseName,
-      onUpdate: (v) => {
-        perspectiveCamera.lookAt[0] +=
-          (newLookAtX - perspectiveCamera.lookAt[0]) * v
-        perspectiveCamera.lookAt[1] +=
-          (newLookAtY - perspectiveCamera.lookAt[1]) * v
-        perspectiveCamera.lookAt[2] +=
-          (newLookAtZ - perspectiveCamera.lookAt[2]) * v
+      // perspectiveCamera.updateViewMatrix().updateProjectionViewMatrix()
+    },
+    onComplete: () => {
+      activeTweens.delete(posTweenID)
+    },
+  })
+  activeTweens.set(posTweenID, posTween)
 
-        perspectiveCamera.updateViewMatrix().updateProjectionViewMatrix()
-      },
-    }),
-  ])
+  const lookAtTweenID = 'camera-look-at'
+  let lookAtTween: Tween | undefined
+  if ((lookAtTween = activeTweens.get(lookAtTweenID))) {
+    lookAtTween.stop()
+    activeTweens.delete(lookAtTweenID)
+  }
+  lookAtTween = new Tween({
+    durationMS: lookAtTweenDurationMS,
+    delayMS: lookAtDelayMS,
+    easeName: lookAtTweenEaseName,
+    onUpdate: (v) => {
+      cameraLookAtOffset[0] += (newLookAtX - cameraLookAtOffset[0]) * v
+      cameraLookAtOffset[1] += (newLookAtY - cameraLookAtOffset[1]) * v
+      cameraLookAtOffset[2] += (newLookAtZ - cameraLookAtOffset[2]) * v
 
-  // return
+      // perspectiveCamera.updateViewMatrix().updateProjectionViewMatrix()
+    },
+  })
+  activeTweens.set(lookAtTweenID, lookAtTween)
+
+  return Promise.all([posTween.start(), lookAtTween.start()])
 }
 
 function makeCloseButtonTexture() {
