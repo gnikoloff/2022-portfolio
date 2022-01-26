@@ -48,19 +48,16 @@ export const transformProjectEntries = (entries: any): Project[] => {
 export const sortProjectEntriesByYear = (
   projectEntries: Project[],
 ): ProjectGroup => {
-  return (
-    [...projectEntries]
-      // .sort((a, b) => a.year - b.year)
-      .reduce((acc: ProjectGroup, item) => {
-        const key = item.year
-        if (!acc[key]) {
-          acc[key] = [item]
-        } else {
-          acc[key] = [...acc[key], item]
-        }
-        return acc
-      }, {})
-  )
+  const byYear = [...projectEntries].reduce((acc: ProjectGroup, item) => {
+    const key = item.year
+    if (!acc[key]) {
+      acc[key] = [item]
+    } else {
+      acc[key].push(item)
+    }
+    return acc
+  }, {})
+  return byYear
 }
 
 /**

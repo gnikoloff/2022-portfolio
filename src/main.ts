@@ -281,8 +281,15 @@ fetch(API_ENDPOINT)
     blogNode.visible = true
     blogNode.setParent(boxesRootNode)
 
-    for (const [key, projects] of Object.entries(projectsByYear)) {
-      const yearNode = new View(gl, { ...viewGeoPartialProps, name: key })
+    const sortedYearsArr: [number, Project[]][] = Object.entries(projectsByYear)
+      .map(([year, project]) => [parseInt(year, 10), project])
+      .sort(([yearA], [yearB]) => (yearB as number) - (yearA as number))
+
+    for (const [year, projects] of sortedYearsArr) {
+      const yearNode = new View(gl, {
+        ...viewGeoPartialProps,
+        name: year.toString(),
+      })
       yearNode.visibilityTweenFactor = 0
       yearNode.visible = false
       yearNode.setParent(projectsNode)
@@ -755,12 +762,16 @@ function updateFrame(ts: DOMHighResTimeStamp) {
     ui: { showCubeHighlight },
   } = store.getState()
 
-  // traverseViewNodes(rootNode, (child) => {
-  //   if (child.uid === activeItemUID) {
-  //     console.log(activeItemUID, child.name)
+  // traverseViewNodes(rootNode, (view) => {
+  //   if (hitView && view.uid === hitView.uid) {
+  //     console.log('hitView.uid', view.name)
+  //   }
+  //   if (view.uid === activeItemUID) {
+  //     console.log('activeItemUID', view.name)
   //   }
   // })
-
+  // const isActiveViewProject =
+  //   hitView && hitView.project && hitView.uid !== activeItemUID
   if (hitView && hitView.uid !== activeItemUID && showCubeHighlight) {
     hoverCube.setPosition(hitView.position)
     store.dispatch(setIsHovering(true))
