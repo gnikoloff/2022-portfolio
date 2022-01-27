@@ -27,6 +27,7 @@ uniform Shared {
 #endif
 
 #ifdef SUPPORTS_FADING
+  uniform float u_opacityMixFactor;
   uniform float u_fadeMixFactor;
 #endif
 
@@ -47,12 +48,12 @@ uniform Shared {
   uniform vec4 u_uvOffsetSizesHoverMask;
 #endif
 
-#ifdef IS_FOG
-  in float vFogDepth;
-#endif
-
 #ifdef IS_CUBE
   uniform float u_loadMixFactor;
+#endif
+
+#ifdef IS_FOG
+  in float vFogDepth;
 #endif
 
 in vec4 vNormal;
@@ -60,6 +61,8 @@ in vec2 vUv;
 
 out vec4 finalColor;
 
+const float FOG_NEAR = 0.1;
+const float FOG_FAR = 30.0;
 const float FACE_COUNT = 6.0;
 const float FACE_STEP = 1.0 / FACE_COUNT;
 const float FACE_STEP2 = FACE_STEP * 2.0;
@@ -154,7 +157,6 @@ void main () {
             vec4 maskColor2 = texture(u_maskTexture2, hoverMaskUV);
             vec4 hoverColor = vec4(vec3(1.0) - texColor.rgb, texColor.a);
             hoverColor = mix(vec4(0.0), hoverColor, 1.0 - step(u_hoverMixFactor, maskColor2.r));
-            // hoverColor = hoverColor;
             finalColor.rgb = blendNormal(finalColor, hoverColor, u_hoverMixFactor).rgb;
           #endif
         #else
@@ -165,11 +167,12 @@ void main () {
   #endif
 
   #ifdef IS_FOG
-    float fogAmount = smoothstep(0.1, 30.0, vFogDepth);
+    float fogAmount = smoothstep(FOG_NEAR, FOG_FAR, vFogDepth);
     finalColor = mix(finalColor, BACKGROUND_COLOR, fogAmount);
   #endif
 
   #ifdef SUPPORTS_FADING
-    finalColor.a = mix(0.0, finalColor.a, u_fadeMixFactor);
+    finalColor.rgb = mix(BACKGROUND_COLOR.rgb, finalColor.rgb, u_fadeMixFactor);
+    finalColor.a = mix(0.0, finalColor.a, u_opacityMixFactor);
   #endif
 }

@@ -58,6 +58,10 @@ export default class Label extends Quad {
     this.updateUniform('u_fadeMixFactor', v)
   }
 
+  set opacityFactor(v: number) {
+    this.updateUniform('u_opacityMixFactor', v)
+  }
+
   set hoverFactor(v: number) {
     if (!this.supportHover) {
       return
@@ -168,6 +172,10 @@ export default class Label extends Quad {
       value: 0,
     })
     this.setUniform('u_fadeMixFactor', {
+      type: gl.FLOAT,
+      value: 1,
+    })
+    this.setUniform('u_opacityMixFactor', {
       type: gl.FLOAT,
       value: 1,
     })

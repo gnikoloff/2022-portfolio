@@ -1,10 +1,10 @@
-import { mat4, vec3 } from 'gl-matrix'
+import { vec3 } from 'gl-matrix'
 import { Drawable } from '../lib/hwoa-rang-gl2'
 
 import VERTEX_SHADER_SRC from '../shaders/uberShader.vert'
 import FRAGMENT_SHADER_SRC from '../shaders/uberShader.frag'
 import { QuadProps } from '../interfaces'
-import { CAMERA_FAR, CAMERA_NEAR } from '../constants'
+import { BACKGROUND_COLOR_GLSL, CAMERA_FAR, CAMERA_NEAR } from '../constants'
 
 export default class Quad extends Drawable {
   cameraUBOIndex: GLuint
@@ -42,6 +42,7 @@ export default class Quad extends Drawable {
       {
         CAMERA_NEAR,
         CAMERA_FAR,
+        BACKGROUND_COLOR: BACKGROUND_COLOR_GLSL,
         ...defines,
       },
       name,

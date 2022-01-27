@@ -25,7 +25,7 @@ import Label from './meshes/label'
 import { Project, ViewProps } from './interfaces'
 
 export default class View extends SceneNode {
-  open = false
+  gl: WebGL2RenderingContext
 
   projectThumbNode: Cube
   hoverThumbNode: Cube
@@ -36,6 +36,7 @@ export default class View extends SceneNode {
   project?: Project
   externalURL?: string
 
+  open = false
   #visibilityTweenFactor = -1
   tweenAnimMode: 0 | 1 = 0 // 0 - reveal, 1 - hide animation mode
 
@@ -84,6 +85,13 @@ export default class View extends SceneNode {
     }
   }
 
+  set opacityFactor(v: number) {
+    this.projectThumbNode.opacityFactor = v
+    if (this.projectLabelNode) {
+      this.projectLabelNode.opacityFactor = v
+    }
+  }
+
   set labelRevealFactor(v: number) {
     if (this.projectLabelNode) {
       this.projectLabelNode.revealMixFactor = v
@@ -127,7 +135,7 @@ export default class View extends SceneNode {
     this.projectThumbNode
       .setScale([scale, scale, scale])
       .setRotation([rotation, currRotationY, currRotationZ])
-    this.projectThumbNode.fadeFactor = v
+    this.projectThumbNode.opacityFactor = v
     this.projectThumbNode.deformationAngle =
       View.DEFORM_ANGLE_ON_OPEN - deformAngle
 
@@ -135,7 +143,7 @@ export default class View extends SceneNode {
     this.hoverThumbNode
       .setScale([upscale, upscale, upscale])
       .setRotation([rotation, currRotationY, currRotationZ])
-    this.hoverThumbNode.fadeFactor = v
+    this.hoverThumbNode.opacityFactor = v
     this.hoverThumbNode.deformationAngle =
       View.DEFORM_ANGLE_ON_OPEN - deformAngle
 

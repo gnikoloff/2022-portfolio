@@ -57,6 +57,7 @@ import './style.css'
 
 import {
   API_ENDPOINT,
+  BACKGROUND_COLOR,
   BASE_PAGE_TITLE,
   CAMERA_BASE_Z_OFFSET,
   CAMERA_FAR,
@@ -117,7 +118,7 @@ const timeAsFloat32 = new Float32Array(1)
 const cameraPositionOffset = vec3.fromValues(0, 0, CAMERA_BASE_Z_OFFSET)
 const cameraLookAtOffset = vec3.create()
 const activeTweens: Map<string, Tween> = new Map()
-const debugLines: Line[] = []
+const debugLinesNode = new SceneNode()
 const rootNode = new SceneNode()
 const boxesRootNode = new SceneNode()
 // const environment = new EnvironmentBox(gl)
@@ -239,14 +240,6 @@ fetch(API_ENDPOINT)
     })
     contactNode.setParent(boxesRootNode).loadThumbnail()
 
-    const githubNode = new View(gl, {
-      ...viewGeoPartialProps,
-      name: 'github',
-      externalURL: 'https://github.com/gnikoloff',
-    })
-    githubNode.visible = false
-    githubNode.setParent(contactNode).loadThumbnail()
-
     const twitterNode = new View(gl, {
       ...viewGeoPartialProps,
       name: 'twitter',
@@ -254,6 +247,14 @@ fetch(API_ENDPOINT)
     })
     twitterNode.visible = false
     twitterNode.setParent(contactNode).loadThumbnail()
+
+    const githubNode = new View(gl, {
+      ...viewGeoPartialProps,
+      name: 'github',
+      externalURL: 'https://github.com/gnikoloff',
+    })
+    githubNode.visible = false
+    githubNode.setParent(contactNode).loadThumbnail()
 
     const codepenNode = new View(gl, {
       ...viewGeoPartialProps,
@@ -369,7 +370,8 @@ async function onMouseClick(e: MouseEvent) {
 
   // debugger
   if (e.metaKey) {
-    debugLines.push(new Line(gl, rayStart, rayEnd))
+    const line = new Line(gl, rayStart, rayEnd)
+    line.setParent(debugLinesNode)
   }
 
   const {
@@ -672,7 +674,7 @@ function updateFrame(ts: DOMHighResTimeStamp) {
   requestAnimationFrame(updateFrame)
 
   const {
-    ui: { mousePos, activeItemUID, showCubeHighlight, backgroundColor },
+    ui: { mousePos, activeItemUID, showCubeHighlight },
   } = store.getState()
 
   const normX = (mousePos[0] / innerWidth) * 2 - 1
@@ -758,7 +760,7 @@ function updateFrame(ts: DOMHighResTimeStamp) {
   gl.clearColor(0.1, 0.1, 0.1, 1.0)
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 
-  // UBO for perspective camera projections
+  // UBO for shared uniforms across all meshes
   if (sharedUBO) {
     const viewMatrix = OPTIONS.cameraFreeMode
       ? freeOrbitCamera.viewMatrix
@@ -807,11 +809,9 @@ function updateFrame(ts: DOMHighResTimeStamp) {
       0,
     )
   }
-
   gl.bindBuffer(gl.UNIFORM_BUFFER, null)
 
-  // gl.bindFramebuffer(gl.FRAMEBUFFER, fboCopy.framebuffer)
-  gl.clearColor(...(backgroundColor as [number, number, number, number]))
+  gl.clearColor(...BACKGROUND_COLOR)
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 
   if (OPTIONS.cameraFreeMode) {
@@ -823,7 +823,7 @@ function updateFrame(ts: DOMHighResTimeStamp) {
     rootNode.render()
   }
 
-  debugLines.forEach((rayLine) => rayLine.render())
+  debugLinesNode.render()
 }
 
 function getHoveredSceneNode(

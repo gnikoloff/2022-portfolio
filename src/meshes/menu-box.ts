@@ -4,11 +4,15 @@ import { Drawable, TextureAtlas } from '../lib/hwoa-rang-gl2'
 import { BoundingBox } from '../lib/hwoa-rang-math'
 import { Tween } from '../lib/hwoa-rang-anim'
 
+import {
+  BACKGROUND_COLOR_GLSL,
+  TRANSITION_LOAD_IMAGE_DURATION,
+} from '../constants'
+
 import { CubeProps } from '../interfaces'
 
 import VERTEX_SHADER_SRC from '../shaders/uberShader.vert'
 import FRAGMENT_SHADER_SRC from '../shaders/uberShader.frag'
-import { TRANSITION_LOAD_IMAGE_DURATION } from '../constants'
 
 export default class MenuBox extends Drawable {
   cameraUBOIndex: GLuint
@@ -42,6 +46,10 @@ export default class MenuBox extends Drawable {
     this.#fadeFactor = v
   }
 
+  set opacityFactor(v: number) {
+    this.updateUniform('u_opacityMixFactor', v)
+  }
+
   constructor(
     gl: WebGL2RenderingContext,
     { geometry, solidColor, name, side = gl.BACK }: CubeProps,
@@ -57,6 +65,7 @@ export default class MenuBox extends Drawable {
       MESH_HEIGHT: geometry.height,
       IS_CUBE: true,
       SUPPORTS_FADING: true,
+      BACKGROUND_COLOR: BACKGROUND_COLOR_GLSL,
     }
     super(gl, VERTEX_SHADER_SRC, FRAGMENT_SHADER_SRC, defines)
 
@@ -86,6 +95,10 @@ export default class MenuBox extends Drawable {
       type: gl.FLOAT,
     })
     this.setUniform('u_fadeMixFactor', {
+      type: gl.FLOAT,
+      value: 1,
+    })
+    this.setUniform('u_opacityMixFactor', {
       type: gl.FLOAT,
       value: 1,
     })
