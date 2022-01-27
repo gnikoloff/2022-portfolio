@@ -13,7 +13,6 @@ const SET_IS_CURRENTLY_TRANSITIONING_VIEW =
   'ui/SET_IS_CURRENTLY_TRANSITIONING_VIEW'
 
 export interface UIState {
-  backgroundColor: [number, number, number, number]
   childrenRowHeights: { [key: string]: number }
   activeItemUID: string | null
   // activeLevelIdx: number
@@ -25,7 +24,6 @@ export interface UIState {
 }
 
 const initialState = {
-  backgroundColor: vec4.fromValues(0.1, 0.1, 0.1, 1.0),
   childrenRowHeights: {},
   activeItemUID: null,
   // activeLevelIdx: -1,

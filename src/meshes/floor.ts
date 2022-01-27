@@ -1,6 +1,5 @@
-import { CAMERA_FAR } from '../constants'
+import { BACKGROUND_COLOR_GLSL, CAMERA_FAR } from '../constants'
 import { createPlane } from '../lib/hwoa-rang-gl2'
-import store from '../store'
 
 import Quad from './quad'
 
@@ -11,13 +10,10 @@ export default class Floor extends Quad {
       width: size,
       height: size,
     })
-    const {
-      ui: { backgroundColor: bgColor },
-    } = store.getState()
     const defines = {
       IS_FOG: true,
       USE_SOLID_COLOR: true,
-      BACKGROUND_COLOR: `vec4(${bgColor[0]}, ${bgColor[1]}, ${bgColor[2]}, ${bgColor[3]})`,
+      BACKGROUND_COLOR: BACKGROUND_COLOR_GLSL,
     }
     super(gl, { geometry, defines, name: 'floor' })
 

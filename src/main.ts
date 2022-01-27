@@ -10,9 +10,13 @@ import {
 import store from './store'
 
 import {
+  aboutSectionMultilineCanvas,
+  aboutSectionSingleLineCanvas,
+  aboutSectionTwoLineCanvas,
   capitalizeFirstLetter,
   getChildrenRowTotalHeight,
   getXYZForViewIdxWithinLevel,
+  promisifiedLoadImage,
   promisifiedTween,
   sortProjectEntriesByYear,
   transformProjectEntries,
@@ -52,8 +56,7 @@ import { Tween } from './lib/hwoa-rang-anim'
 import MenuBox from './meshes/menu-box'
 import View from './view'
 import Line from './meshes/line'
-
-import './style.css'
+import Floor from './meshes/floor'
 
 import {
   API_ENDPOINT,
@@ -79,7 +82,9 @@ import {
   TRANSITION_ROW_DURATION,
   TRANSITION_ROW_EASE,
 } from './constants'
-import Floor from './meshes/floor'
+
+import './style.css'
+import profilePicURL from './assets/profile-pic.png'
 
 // import EnvironmentBox from './meshes/environment-box'
 
@@ -179,13 +184,16 @@ const cubeGeometry = createBox({
 const labelGeometry = createPlane({
   width: LABEL_WIDTH,
   height: LABEL_HEIGHT,
-  widthSegments: 30,
-  heightSegments: 20,
 })
 const openButtonGeometry = createPlane({
   width: OPEN_BUTTON_WIDTH,
   height: OPEN_BUTTON_HEIGHT,
 })
+const viewGeoPartialProps = {
+  cubeGeometry,
+  labelGeometry,
+  openButtonGeometry,
+}
 
 // Hover cube
 const hoverCube = new MenuBox(gl, {
@@ -211,73 +219,20 @@ fetch(API_ENDPOINT)
   .then((projects) => projects.json())
   .then(transformProjectEntries)
   .then((projects: Project[]) => {
-    const viewGeoPartialProps = {
-      cubeGeometry,
-      labelGeometry,
-      openButtonGeometry,
-    }
     const projectsByYear = sortProjectEntriesByYear(projects)
 
-    const projectsNode = new View(gl, {
-      ...viewGeoPartialProps,
-      name: 'projects',
-    })
-    projectsNode.loadThumbnail()
-    projectsNode.visibilityTweenFactor = 1
-    projectsNode.setParent(boxesRootNode)
-
-    const aboutNode = new View(gl, { ...viewGeoPartialProps, name: 'about' })
-    aboutNode.setParent(boxesRootNode).loadThumbnail()
-
-    const aaaaaaNode = new View(gl, { ...viewGeoPartialProps, name: 'aa' })
-    aaaaaaNode.loadThumbnail()
-    aaaaaaNode.visible = false
-    aaaaaaNode.setParent(aboutNode)
-
-    const contactNode = new View(gl, {
-      ...viewGeoPartialProps,
-      name: 'social',
-    })
-    contactNode.setParent(boxesRootNode).loadThumbnail()
-
-    const twitterNode = new View(gl, {
-      ...viewGeoPartialProps,
-      name: 'twitter',
-      externalURL: 'https://twitter.com/georgiNikoloff',
-    })
-    twitterNode.visible = false
-    twitterNode.setParent(contactNode).loadThumbnail()
-
-    const githubNode = new View(gl, {
-      ...viewGeoPartialProps,
-      name: 'github',
-      externalURL: 'https://github.com/gnikoloff',
-    })
-    githubNode.visible = false
-    githubNode.setParent(contactNode).loadThumbnail()
-
-    const codepenNode = new View(gl, {
-      ...viewGeoPartialProps,
-      name: 'codepen',
-      externalURL: 'https://codepen.io/gbnikolov',
-    })
-    codepenNode.visible = false
-    codepenNode.setParent(contactNode).loadThumbnail()
-
-    const mailNode = new View(gl, {
-      ...viewGeoPartialProps,
-      name: 'mail',
-      externalURL: 'mailto:connect@georgi-nikolov.com',
-    })
-    mailNode.visible = false
-    mailNode.setParent(contactNode).loadThumbnail()
-
-    const blogNode = new View(gl, {
-      ...viewGeoPartialProps,
-      name: 'archive',
-      externalURL: 'https://archive.georgi-nikolov.com/',
-    })
-    blogNode.setParent(boxesRootNode).loadThumbnail()
+    const projectsNode = boxesRootNode.findChild(
+      (child) => child.name === 'projects',
+    ) as View
+    const aboutNode = boxesRootNode.findChild(
+      (child) => child.name === 'about',
+    ) as View
+    const contactNode = boxesRootNode.findChild(
+      (child) => child.name === 'contact',
+    ) as View
+    const blogNode = boxesRootNode.findChild(
+      (child) => child.name === 'blog',
+    ) as View
 
     const sortedYearsArr: [number, Project[]][] = Object.entries(projectsByYear)
       .map(([year, project]) => [parseInt(year, 10), project])
@@ -304,23 +259,6 @@ fetch(API_ENDPOINT)
         projectNode.setParent(yearNode)
       }
     }
-    projectsNode.visible = true
-
-    const positionNodeWithinLevel = (
-      node: SceneNode,
-      idx: number,
-      levelIdx: number,
-    ): vec3 => {
-      const position = getXYZForViewIdxWithinLevel(idx, levelIdx)
-      node.setPosition(position).updateWorldMatrix()
-      levelIdx++
-      const children = node.children
-      for (let i = 0; i < children.length; i++) {
-        const child = node.children[i] as View
-        positionNodeWithinLevel(child, i, levelIdx)
-      }
-      return position
-    }
 
     const childrenRowHeightByView: { [key: string]: number } = {}
 
@@ -336,6 +274,10 @@ fetch(API_ENDPOINT)
     store.dispatch(setChildrenRowHeight(childrenRowHeightByView))
 
     positionNodeWithinLevel(boxesRootNode, 0, -1)
+    toggleChildrenRowVisibility({
+      node: [projectsNode, aboutNode, contactNode, blogNode],
+      visible: true,
+    })
   })
 
 store.subscribe(() => {
@@ -350,11 +292,165 @@ store.subscribe(() => {
   oldActiveItemUID = activeItemUID
 })
 
+initializeNavNodes()
 document.body.addEventListener('mousemove', onMouseMove)
 document.body.addEventListener('click', onMouseClick)
-// document.body.addEventListener('touchstart', (e) => e.preventDefault())
-// document.body.addEventListener('touchmove', (e) => e.preventDefault())
 requestAnimationFrame(updateFrame)
+
+function initializeNavNodes() {
+  const projectsNode = new View(gl, {
+    ...viewGeoPartialProps,
+    name: 'projects',
+  })
+  projectsNode.loadThumbnail()
+  projectsNode.visible = false
+  projectsNode.setParent(boxesRootNode)
+
+  const aboutNode = new View(gl, { ...viewGeoPartialProps, name: 'about' })
+  aboutNode.visible = false
+  aboutNode.setParent(boxesRootNode).loadThumbnail()
+
+  const contactNode = new View(gl, {
+    ...viewGeoPartialProps,
+    name: 'contact',
+  })
+  contactNode.visible = false
+  contactNode.setParent(boxesRootNode).loadThumbnail()
+
+  const blogNode = new View(gl, {
+    ...viewGeoPartialProps,
+    name: 'blog',
+    externalURL: 'https://archive.georgi-nikolov.com/',
+  })
+  blogNode.visible = false
+  blogNode.setParent(boxesRootNode).loadThumbnail()
+
+  const profilePicNode = new View(gl, {
+    ...viewGeoPartialProps,
+    interactable: false,
+    name: 'profile-pic',
+  })
+  promisifiedLoadImage(profilePicURL).then((image) => {
+    profilePicNode.loadThumbnail(image)
+  })
+  profilePicNode.visible = false
+  profilePicNode.setParent(aboutNode)
+
+  const nameNode = new View(gl, {
+    ...viewGeoPartialProps,
+    interactable: false,
+    name: 'personal-name',
+  })
+  nameNode.loadThumbnail(aboutSectionTwoLineCanvas('name', 'Georgi', 'Nikolov'))
+  nameNode.visible = false
+  nameNode.setParent(aboutNode)
+
+  const jobTitleNode = new View(gl, {
+    ...viewGeoPartialProps,
+    interactable: false,
+    name: 'job-title',
+  })
+  jobTitleNode.loadThumbnail(
+    aboutSectionTwoLineCanvas('job title', 'Frontend', 'Developer'),
+  )
+  jobTitleNode.visible = false
+  jobTitleNode.setParent(aboutNode)
+
+  const currentCountryNode = new View(gl, {
+    ...viewGeoPartialProps,
+    interactable: false,
+    name: 'current-country',
+  })
+  currentCountryNode.loadThumbnail(
+    aboutSectionTwoLineCanvas('lives in', 'Berlin', 'Germany'),
+  )
+  currentCountryNode.visible = false
+  currentCountryNode.setParent(aboutNode)
+
+  const fromCountryNode = new View(gl, {
+    ...viewGeoPartialProps,
+    interactable: false,
+    name: 'from-country',
+  })
+  fromCountryNode.loadThumbnail(
+    aboutSectionTwoLineCanvas('from', 'Sofia', 'Bulgaria'),
+  )
+  fromCountryNode.visible = false
+  fromCountryNode.setParent(aboutNode)
+
+  const currentWorkNode = new View(gl, {
+    ...viewGeoPartialProps,
+    interactable: false,
+    name: 'current-work',
+  })
+  currentWorkNode.loadThumbnail(
+    aboutSectionSingleLineCanvas('current work', 'Freelancer'),
+  )
+  currentWorkNode.visible = false
+  currentWorkNode.setParent(aboutNode)
+
+  const skillsNode = new View(gl, {
+    ...viewGeoPartialProps,
+    interactable: false,
+    name: 'skills',
+  })
+  skillsNode.loadThumbnail(
+    aboutSectionMultilineCanvas('skills', [
+      'Typescript',
+      'WebGL WebGPU',
+      'GLSL React Node.js',
+    ]),
+  )
+  skillsNode.visible = false
+  skillsNode.setParent(aboutNode)
+
+  const techNode = new View(gl, {
+    ...viewGeoPartialProps,
+    interactable: false,
+    name: 'website-tech',
+  })
+  techNode.loadThumbnail(
+    aboutSectionMultilineCanvas('this site runs on', [
+      'hwoa-rang-gl2',
+      'hwoa-rang-tween',
+      'gl-matrix redux',
+    ]),
+  )
+  techNode.visible = false
+  techNode.setParent(aboutNode)
+
+  const twitterNode = new View(gl, {
+    ...viewGeoPartialProps,
+    name: 'twitter',
+    externalURL: 'https://twitter.com/georgiNikoloff',
+  })
+  twitterNode.visible = false
+  twitterNode.setParent(contactNode).loadThumbnail()
+
+  const githubNode = new View(gl, {
+    ...viewGeoPartialProps,
+    name: 'github',
+    externalURL: 'https://github.com/gnikoloff',
+  })
+  githubNode.visible = false
+  githubNode.setParent(contactNode).loadThumbnail()
+
+  const codepenNode = new View(gl, {
+    ...viewGeoPartialProps,
+    name: 'codepen',
+    externalURL: 'https://codepen.io/gbnikolov',
+  })
+  codepenNode.visible = false
+  codepenNode.setParent(contactNode).loadThumbnail()
+
+  const mailNode = new View(gl, {
+    ...viewGeoPartialProps,
+    name: 'mail',
+    externalURL: 'mailto:connect@georgi-nikolov.com',
+  })
+  mailNode.visible = false
+  mailNode.setParent(contactNode).loadThumbnail()
+}
 
 function onMouseMove(e: MouseEvent) {
   store.dispatch(setMousePos([e.pageX, e.pageY]))
@@ -965,6 +1061,22 @@ async function tweenCameraToPosition({
   activeTweens.set(lookAtTweenID, lookAtTween)
 
   return Promise.all([posTween.start(), lookAtTween.start()])
+}
+
+function positionNodeWithinLevel(
+  node: SceneNode,
+  idx: number,
+  levelIdx: number,
+): vec3 {
+  const position = getXYZForViewIdxWithinLevel(idx, levelIdx)
+  node.setPosition(position).updateWorldMatrix()
+  levelIdx++
+  const children = node.children
+  for (let i = 0; i < children.length; i++) {
+    const child = node.children[i] as View
+    positionNodeWithinLevel(child, i, levelIdx)
+  }
+  return position
 }
 
 function sizeCanvas() {

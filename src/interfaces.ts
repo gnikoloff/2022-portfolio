@@ -79,6 +79,7 @@ export interface ViewProps {
   project?: Project
   hasLabel?: boolean
   externalURL?: string
+  interactable?: boolean
 }
 
 export interface SingleViewProps {
@@ -109,7 +110,7 @@ export interface CameraTransitionProps {
   newLookAtX?: number
   newLookAtY?: number
   newLookAtZ?: number
-  lookAtDelayMS?: number§
+  lookAtDelayMS?: number
   lookAtTweenDurationMS?: number
   lookAtTweenEaseName?: easeType
 }

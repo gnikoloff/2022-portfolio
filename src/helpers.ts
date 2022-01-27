@@ -2,6 +2,7 @@ import { vec3 } from 'gl-matrix'
 import {
   CUBE_HEIGHT,
   CUBE_WIDTH,
+  FONT_STACK,
   LAYOUT_COLUMN_MAX_WIDTH,
   LAYOUT_ITEMS_PER_ROW,
   LAYOUT_LEVEL_Y_OFFSET,
@@ -163,4 +164,84 @@ export const traverseViewNodes = (
 
 export const capitalizeFirstLetter = (v: string): string => {
   return `${v.charAt(0).toUpperCase()}${v.slice(1)}`
+}
+
+// about section label texts helpers
+const aboutSectionTemplateCanvas = (
+  label: string,
+  width = 400,
+): [HTMLCanvasElement, CanvasRenderingContext2D, number] => {
+  const canvas = document.createElement('canvas')
+  const ctx = canvas.getContext('2d')!
+  canvas.width = width
+  const boxAspect = CUBE_WIDTH / CUBE_HEIGHT
+  canvas.height = width / boxAspect
+  ctx.fillStyle = '#aaa'
+  ctx.font = `24px ${FONT_STACK}`
+  const paddingX = 24
+  const paddingY = 40
+  ctx.textAlign = 'left'
+  ctx.fillText(label, paddingX, paddingY)
+  return [canvas, ctx, paddingX]
+}
+
+export const aboutSectionSingleLineCanvas = (
+  label: string,
+  text: string,
+  width = 400,
+): HTMLCanvasElement => {
+  const [canvas, ctx, paddingX] = aboutSectionTemplateCanvas(label, width)
+  ctx.fillStyle = '#fff'
+  ctx.font = `62px ${FONT_STACK}`
+  ctx.textBaseline = 'middle'
+  const yOffset = 10
+  ctx.fillText(text, paddingX, canvas.height / 2 + yOffset)
+  return canvas
+}
+
+export const aboutSectionTwoLineCanvas = (
+  label: string,
+  text1: string,
+  text2: string,
+  width = 400,
+): HTMLCanvasElement => {
+  const [canvas, ctx, paddingX] = aboutSectionTemplateCanvas(label, width)
+  ctx.fillStyle = '#fff'
+  ctx.font = `62px ${FONT_STACK}`
+  ctx.textBaseline = 'middle'
+  const metrics = ctx.measureText(text1)
+  const textHeight =
+    metrics.fontBoundingBoxAscent + metrics.fontBoundingBoxDescent
+  const lineHeight = textHeight
+  const yOffset = 10
+  ctx.fillText(text1, paddingX, canvas.height / 2 - lineHeight / 2 + yOffset)
+  ctx.fillText(text2, paddingX, canvas.height / 2 + lineHeight / 2 + yOffset)
+  return canvas
+}
+
+export const aboutSectionMultilineCanvas = (
+  label: string,
+  lines: string[],
+  width = 400,
+): HTMLCanvasElement => {
+  const [canvas, ctx, paddingX] = aboutSectionTemplateCanvas(label, width)
+  ctx.fillStyle = '#fff'
+  ctx.font = `36px ${FONT_STACK}`
+
+  ctx.textBaseline = 'middle'
+
+  const metrics = ctx.measureText(lines[0])
+  const textHeight =
+    metrics.fontBoundingBoxAscent + metrics.fontBoundingBoxDescent * 1.5
+
+  const totalHeight = textHeight * lines.length
+
+  lines.forEach((text, i) => {
+    ctx.fillText(
+      text,
+      paddingX,
+      canvas.height / 2 - totalHeight / 4 + i * textHeight,
+    )
+  })
+  return canvas
 }
