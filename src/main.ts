@@ -366,7 +366,7 @@ function initializeNavNodes() {
     name: 'current-work',
   })
   currentWorkNode.loadThumbnail(
-    aboutSectionSingleLineCanvas('current work', 'Freelancer'),
+    aboutSectionMultilineCanvas('position', ['Freelancer', 'AWWWARDS Jury']),
   )
   currentWorkNode.visible = false
   currentWorkNode.setParent(aboutNode)
