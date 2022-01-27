@@ -28,12 +28,12 @@ export default class View extends SceneNode {
   gl: WebGL2RenderingContext
 
   projectThumbNode: Cube
-  hoverThumbNode?: Cube
+  hoverThumbNode: Cube
   projectLabelNode?: Label
   projectRoleNode?: Label
   openLabelNode?: Label
 
-  interactable = true
+  isAboutView = false
   project?: Project
   externalURL?: string
 
@@ -140,15 +140,13 @@ export default class View extends SceneNode {
     this.projectThumbNode.deformationAngle =
       View.DEFORM_ANGLE_ON_OPEN - deformAngle
 
-    if (this.hoverThumbNode) {
-      const upscale = scale + View.HOVER_MESH_UPSCALE_FACTOR
-      this.hoverThumbNode
-        .setScale([upscale, upscale, upscale])
-        .setRotation([rotation, currRotationY, currRotationZ])
-      this.hoverThumbNode.opacityFactor = v
-      this.hoverThumbNode.deformationAngle =
-        View.DEFORM_ANGLE_ON_OPEN - deformAngle
-    }
+    const upscale = scale + View.HOVER_MESH_UPSCALE_FACTOR
+    this.hoverThumbNode
+      .setScale([upscale, upscale, upscale])
+      .setRotation([rotation, currRotationY, currRotationZ])
+    this.hoverThumbNode.opacityFactor = v
+    this.hoverThumbNode.deformationAngle =
+      View.DEFORM_ANGLE_ON_OPEN - deformAngle
 
     if (this.projectLabelNode) {
       this.projectLabelNode.revealMixFactor = v
@@ -161,9 +159,6 @@ export default class View extends SceneNode {
     rayDirection: vec3,
   ): [number | null, boolean] | null {
     if (!this._visible) {
-      return null
-    }
-    if (!this.interactable) {
       return null
     }
 
@@ -210,12 +205,10 @@ export default class View extends SceneNode {
       }
     }
 
-    if (this.hoverThumbNode) {
-      if (this.open && this.project) {
-        this.hoverThumbNode.visible = false
-      } else {
-        this.hoverThumbNode.visible = !!rayTime
-      }
+    if (this.open && this.project) {
+      this.hoverThumbNode.visible = false
+    } else {
+      this.hoverThumbNode.visible = !!rayTime
     }
 
     return [rayTime, isOpenLink]
@@ -230,7 +223,7 @@ export default class View extends SceneNode {
       name,
       project,
       hasLabel = false,
-      interactable = true,
+      isAboutView = false,
       externalURL,
     }: ViewProps,
   ) {
@@ -238,7 +231,7 @@ export default class View extends SceneNode {
     this.gl = gl
     this.project = project
     this.externalURL = externalURL
-    this.interactable = interactable
+    this.isAboutView = isAboutView
 
     const meshWrapperNode = new SceneNode(View.MESH_WRAPPER_NAME)
     meshWrapperNode.setParent(this)
@@ -249,19 +242,17 @@ export default class View extends SceneNode {
     })
     this.projectThumbNode.setParent(meshWrapperNode)
 
-    if (interactable) {
-      this.hoverThumbNode = new Cube(gl, {
-        geometry: cubeGeometry,
-        solidColor: [0, 0, 1, 1],
-        side: gl.FRONT,
-      })
-      this.hoverThumbNode.visible = false
-      const hoverScale = 1 + View.HOVER_MESH_UPSCALE_FACTOR
-      this.hoverThumbNode
-        .setScale([hoverScale, hoverScale, hoverScale])
-        .updateWorldMatrix()
-        .setParent(meshWrapperNode)
-    }
+    this.hoverThumbNode = new Cube(gl, {
+      geometry: cubeGeometry,
+      solidColor: [0, 0, 1, 1],
+      side: gl.FRONT,
+    })
+    this.hoverThumbNode.visible = false
+    const hoverScale = 1 + View.HOVER_MESH_UPSCALE_FACTOR
+    this.hoverThumbNode
+      .setScale([hoverScale, hoverScale, hoverScale])
+      .updateWorldMatrix()
+      .setParent(meshWrapperNode)
 
     if (hasLabel) {
       this.projectLabelNode = new Label(gl, {

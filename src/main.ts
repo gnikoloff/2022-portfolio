@@ -312,7 +312,7 @@ function initializeNavNodes() {
 
   const profilePicNode = new View(gl, {
     ...viewGeoPartialProps,
-    interactable: false,
+    isAboutView: true,
     name: 'profile-pic',
   })
   promisifiedLoadImage(profilePicURL).then((image) => {
@@ -323,7 +323,7 @@ function initializeNavNodes() {
 
   const nameNode = new View(gl, {
     ...viewGeoPartialProps,
-    interactable: false,
+    isAboutView: true,
     name: 'personal-name',
   })
   nameNode.loadThumbnail(aboutSectionTwoLineCanvas('name', 'Georgi', 'Nikolov'))
@@ -332,7 +332,7 @@ function initializeNavNodes() {
 
   const jobTitleNode = new View(gl, {
     ...viewGeoPartialProps,
-    interactable: false,
+    isAboutView: true,
     name: 'job-title',
   })
   jobTitleNode.loadThumbnail(
@@ -343,7 +343,7 @@ function initializeNavNodes() {
 
   const currentCountryNode = new View(gl, {
     ...viewGeoPartialProps,
-    interactable: false,
+    isAboutView: true,
     name: 'current-country',
   })
   currentCountryNode.loadThumbnail(
@@ -354,7 +354,7 @@ function initializeNavNodes() {
 
   const fromCountryNode = new View(gl, {
     ...viewGeoPartialProps,
-    interactable: false,
+    isAboutView: true,
     name: 'from-country',
   })
   fromCountryNode.loadThumbnail(
@@ -365,7 +365,7 @@ function initializeNavNodes() {
 
   const currentWorkNode = new View(gl, {
     ...viewGeoPartialProps,
-    interactable: false,
+    isAboutView: true,
     name: 'current-work',
   })
   currentWorkNode.loadThumbnail(
@@ -376,7 +376,7 @@ function initializeNavNodes() {
 
   const skillsNode = new View(gl, {
     ...viewGeoPartialProps,
-    interactable: false,
+    isAboutView: true,
     name: 'skills',
   })
   skillsNode.loadThumbnail(
@@ -391,7 +391,7 @@ function initializeNavNodes() {
 
   const techNode = new View(gl, {
     ...viewGeoPartialProps,
-    interactable: false,
+    isAboutView: true,
     name: 'website-tech',
   })
   techNode.loadThumbnail(
@@ -481,7 +481,11 @@ async function onMouseClick(e: MouseEvent) {
     ? (boxesRootNode.findChild((child) => child.uid === activeItemUID) as View)
     : null
 
-  if (oldView?.project && !hitView?.project) {
+  if (
+    (oldView?.project || oldView?.isAboutView) &&
+    !hitView?.project &&
+    !hitView?.isAboutView
+  ) {
     traverseViewNodes(rootNode, (view) => {
       if (view !== oldView) {
         new Tween({
@@ -541,8 +545,6 @@ async function onMouseClick(e: MouseEvent) {
         : -rowHeight / 2 - LAYOUT_LEVEL_Y_OFFSET * levelIndex + CUBE_HEIGHT
     const newZ = CAMERA_BASE_Z_OFFSET + levelIndex * CAMERA_LEVEL_Z_OFFSET
 
-    // debugger
-
     tweenCameraToPosition({
       newX: 0,
       newY,
@@ -561,13 +563,11 @@ async function onMouseClick(e: MouseEvent) {
     return
   }
 
-  if (hitView.project) {
-    // debugger
+  if (hitView.project || hitView.isAboutView) {
     if (hitView.open) {
       store.dispatch(setIsCurrentlyTransitionViews(false))
       return
     }
-    // console.log('hit')
     hitView.open = true
     if (oldView) {
       oldView.open = false
@@ -576,7 +576,7 @@ async function onMouseClick(e: MouseEvent) {
       durationMS: 500,
       onUpdate: (v) => {
         hitView.metaLabelsRevealFactor = v
-        if (oldView?.project) {
+        if (oldView?.project || oldView?.isAboutView) {
           hitView.fadeFactor = clamp(
             mapNumberRange(v, 0, 1, View.FADED_OUT_FACTOR, 1),
             View.FADED_OUT_FACTOR,
@@ -672,8 +672,8 @@ async function onMouseClick(e: MouseEvent) {
         : 1
 
       if (
-        prevView.project &&
-        !hitView.project &&
+        (prevView.project || prevView.isAboutView) &&
+        !(hitView.project || hitView.isAboutView) &&
         prevView.parentNode === hitView
       ) {
         // hitView = hitView.parentNode as View
@@ -710,7 +710,9 @@ async function onMouseClick(e: MouseEvent) {
 
   const rowHeight =
     levelOffset === -1
-      ? childrenRowHeights[(hitView.parentNode as View).uid]
+      ? prevView.project
+        ? childrenRowHeights[(hitView.parentNode as View).uid]
+        : CUBE_HEIGHT
       : levelOffset === 1
       ? childrenRowHeights[hitView.uid]
       : hitView.open
@@ -726,7 +728,7 @@ async function onMouseClick(e: MouseEvent) {
   const newZ =
     CAMERA_BASE_Z_OFFSET + (levelIndex + levelOffset) * CAMERA_LEVEL_Z_OFFSET
 
-  // console.log(levelIndex, hitView.open)
+  // debugger
 
   tweenCameraToPosition({
     newX: 0,
@@ -807,7 +809,12 @@ function updateFrame(ts: DOMHighResTimeStamp) {
   if (hitView && hitView.uid !== activeItemUID && showCubeHighlight) {
     store.dispatch(setIsHovering(true))
   } else {
-    if (hitView && !hitView.project && showCubeHighlight) {
+    if (
+      hitView &&
+      !hitView.project &&
+      !hitView.isAboutView &&
+      showCubeHighlight
+    ) {
       store.dispatch(setIsHovering(true))
     } else {
       store.dispatch(setIsHovering(hitView && hitView.open && isOpenLink))
@@ -815,7 +822,8 @@ function updateFrame(ts: DOMHighResTimeStamp) {
   }
 
   // update camera
-  const camHoverMoveRadius = hitView && hitView.project ? 1 : 3
+  const camHoverMoveRadius =
+    hitView && (hitView.project || hitView.isAboutView) ? 1 : 3
   camMoveRadius += (camHoverMoveRadius - camMoveRadius) * dt
 
   const mx = (mousePos[0] / innerWidth - 0.5) * camMoveRadius

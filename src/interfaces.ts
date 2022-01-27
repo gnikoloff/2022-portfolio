@@ -79,7 +79,7 @@ export interface ViewProps {
   project?: Project
   hasLabel?: boolean
   externalURL?: string
-  interactable?: boolean
+  isAboutView?: boolean
 }
 
 export interface SingleViewProps {
