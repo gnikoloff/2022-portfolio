@@ -7,6 +7,7 @@ const SET_CHILDREN_ROW_HEIGHT = 'ui/SET_CHILDREN_ROW_HEIGHT'
 const SET_ACTIVE_ITEM_UID = 'ui/SET_ACTIVE_ITEM_UID'
 // const SET_ACTIVE_LEVEL_IDX = 'ui/SET_ACTIVE_LEVEL_IDX'
 const SET_MOUSE_POS = 'ui/SET_MOUSE_POS'
+const SET_CLICK_POS = 'ui/SET_CLICK_POS'
 const SET_IS_HOVERING = 'ui/SET_IS_HOVERING'
 const SET_SHOW_CUBE_HIGHLIGHT = 'ui/SET_SHOW_CUBE_HIGHLIGHT'
 const SET_IS_CURRENTLY_TRANSITIONING_VIEW =
@@ -15,8 +16,8 @@ const SET_IS_CURRENTLY_TRANSITIONING_VIEW =
 export interface UIState {
   childrenRowHeights: { [key: string]: number }
   activeItemUID: string | null
-  // activeLevelIdx: number
   mousePos: vec2
+  clickPos: vec2
   isHovering: boolean
   isDisplayCursor: boolean
   isCurrentlyTransitionViews: false
@@ -26,8 +27,8 @@ export interface UIState {
 const initialState = {
   childrenRowHeights: {},
   activeItemUID: null,
-  // activeLevelIdx: -1,
   mousePos: [-1000, -1000],
+  clickPos: [-1000, -1000],
   isHovering: false,
   isDisplayCursor: false,
   isCurrentlyTransitionViews: false,
@@ -49,17 +50,14 @@ const views = (state = initialState, action: ActionPayload) => {
         activeItemUID: action.payload,
       }
     }
-    // case SET_ACTIVE_LEVEL_IDX: {
-    //   return {
-    //     ...state,
-    //     activeLevelIdx: action.payload,
-    //   }
-    // }
     case SET_MOUSE_POS: {
       return {
         ...state,
         mousePos: action.payload,
       }
+    }
+    case SET_CLICK_POS: {
+      return { ...state, clickPos: action.payload }
     }
     case SET_IS_HOVERING: {
       return {
@@ -97,10 +95,10 @@ export const setActiveItemUID = (activeItemUID: string) => ({
   payload: activeItemUID,
 })
 
-// export const setActiveLevelIdx = (activeLevelIdx: number) => ({
-//   type: SET_ACTIVE_LEVEL_IDX,
-//   payload: activeLevelIdx,
-// })
+export const setClickPos = (clickPos: vec2) => ({
+  type: SET_CLICK_POS,
+  payload: clickPos,
+})
 
 export const setMousePos = (mousePos: vec2) => ({
   type: SET_MOUSE_POS,

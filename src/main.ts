@@ -25,6 +25,7 @@ import {
 import {
   setActiveItemUID,
   setChildrenRowHeight,
+  setClickPos,
   setIsCurrentlyTransitionViews,
   setIsHovering,
   setMousePos,
@@ -277,6 +278,7 @@ store.subscribe(() => {
 initializeNavNodes()
 document.body.addEventListener('mousemove', onMouseMove)
 document.body.addEventListener('click', onMouseClick)
+document.body.addEventListener('mouseup', onMouseUp)
 window.addEventListener('resize', onResize)
 requestAnimationFrame(updateFrame)
 
@@ -435,7 +437,12 @@ function initializeNavNodes() {
   mailNode.setParent(contactNode).loadThumbnail()
 }
 
+function onMouseUp() {
+  store.dispatch(setClickPos([-5000, -5000]))
+}
+
 function onMouseMove(e: MouseEvent) {
+  store.dispatch(setClickPos([e.pageX, e.pageY]))
   store.dispatch(setMousePos([e.pageX, e.pageY]))
 }
 
@@ -751,11 +758,11 @@ function updateFrame(ts: DOMHighResTimeStamp) {
   requestAnimationFrame(updateFrame)
 
   const {
-    ui: { mousePos, activeItemUID, showCubeHighlight },
+    ui: { mousePos, clickPos, activeItemUID, showCubeHighlight },
   } = store.getState()
 
-  const normX = (mousePos[0] / innerWidth) * 2 - 1
-  const normY = 2 - (mousePos[1] / innerHeight) * 2 - 1
+  const normX = (clickPos[0] / innerWidth) * 2 - 1
+  const normY = 2 - (clickPos[1] / innerHeight) * 2 - 1
   const { rayStart, rayDirection } = projectMouseToWorldSpace(
     [normX, normY],
     OPTIONS.cameraFreeMode ? freeOrbitCamera : perspectiveCamera,
