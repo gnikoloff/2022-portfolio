@@ -245,6 +245,5 @@ export default class MenuBox extends Drawable {
     }
 
     gl.disable(gl.BLEND)
-    // gl.enable(gl.DEPTH_TEST)
   }
 }
