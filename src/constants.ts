@@ -1,5 +1,18 @@
 import { easeType } from './lib/hwoa-rang-anim'
 
+export const LAYOUT_COLUMN_MAX_WIDTH = 14
+export const CAMERA_FOV = 70
+
+let targetCameraZ = 8
+{
+  const fov = (70 * Math.PI) / 180 // convert vertical fov to radians
+  const h = 2 * Math.tan(fov / 2) * targetCameraZ // visible height
+  const w = h * (innerWidth / innerHeight)
+  if (LAYOUT_COLUMN_MAX_WIDTH > w) {
+    targetCameraZ *= (LAYOUT_COLUMN_MAX_WIDTH / w) * 1.1
+  }
+}
+
 export const API_ENDPOINT = 'http://192.168.2.123:3001/api'
 
 export const BASE_PAGE_TITLE = document.title
@@ -11,7 +24,6 @@ export const BACKGROUND_COLOR_GLSL = `vec4(${BACKGROUND_COLOR.join(',')})`
 export const FONT_STACK =
   '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"'
 
-export const LAYOUT_COLUMN_MAX_WIDTH = 14
 export const LAYOUT_ITEMS_PER_ROW = 4
 export const LAYOUT_LEVEL_Y_OFFSET = 9
 export const LAYOUT_LEVEL_Z_OFFSET = 5
@@ -33,7 +45,7 @@ export const OPEN_BUTTON_MARGIN_Z = 0.3
 export const CAMERA_NEAR = 0.1
 export const CAMERA_FAR = 60
 export const CAMERA_FOCUS_OFFSET_Z = 5
-export const CAMERA_BASE_Z_OFFSET = 8
+export const CAMERA_BASE_Z_OFFSET = targetCameraZ
 export const CAMERA_LEVEL_Z_OFFSET = 5
 
 export const TRANSITION_CAMERA_POSITION_DURATION = 700

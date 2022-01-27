@@ -62,6 +62,7 @@ import {
   BASE_PAGE_TITLE,
   CAMERA_BASE_Z_OFFSET,
   CAMERA_FAR,
+  CAMERA_FOV,
   CAMERA_LEVEL_Z_OFFSET,
   CAMERA_NEAR,
   CUBE_DEPTH,
@@ -133,7 +134,7 @@ TextureAtlas.gl = gl
 
 // Set up cameras
 const freeOrbitCamera = new PerspectiveCamera(
-  deg2Rad(70),
+  deg2Rad(CAMERA_FOV),
   $canvas.width / $canvas.height,
   CAMERA_NEAR,
   1000,
@@ -142,7 +143,7 @@ freeOrbitCamera.position = [7, 8, 10]
 freeOrbitCamera.lookAt = [0, 0, 0]
 
 const perspectiveCamera = new PerspectiveCamera(
-  deg2Rad(70),
+  deg2Rad(CAMERA_FOV),
   $canvas.width / $canvas.height,
   CAMERA_NEAR,
   CAMERA_FAR,
