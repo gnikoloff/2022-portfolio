@@ -276,6 +276,7 @@ store.subscribe(() => {
 initializeNavNodes()
 document.body.addEventListener('mousemove', onMouseMove)
 document.body.addEventListener('click', onMouseClick)
+window.addEventListener('resize', onResize)
 requestAnimationFrame(updateFrame)
 
 function initializeNavNodes() {
@@ -1041,6 +1042,12 @@ function positionNodeWithinLevel(
     positionNodeWithinLevel(child, i, levelIdx)
   }
   return position
+}
+
+function onResize() {
+  perspectiveCamera.aspect = innerWidth / innerHeight
+  perspectiveCamera.updateProjectionMatrix()
+  sizeCanvas()
 }
 
 function sizeCanvas() {
