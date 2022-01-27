@@ -32,6 +32,7 @@
   },
   "dependencies": {
     "@reduxjs/toolkit": "^1.7.1",
+    "@types/dat.gui": "^0.7.7",
     "dat.gui": "^0.7.7",
     "gl-matrix": "^3.4.3",
     "lodash.clonedeep": "^4.5.0",
