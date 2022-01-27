@@ -39,11 +39,19 @@
   <body style="background-color: rgb(25, 25, 25)">
     <div id="app"></div>
     <script type="module" src="/src/main.ts"></script>
+    <!-- Global site tag (gtag.js) - Google Analytics -->
     <script
-      src="https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.7.7/dat.gui.min.js"
-      integrity="sha512-LF8ZB1iTwi4Qvkm4pekHG4a437Y9Af5ZuwbnW4GTbAWQeR2E4KW8WF+xH8b9psevV7wIlDMx1MH9YfPqgKhA/Q=="
-      crossorigin="anonymous"
-      referrerpolicy="no-referrer"
+      async
+      src="https://www.googletagmanager.com/gtag/js?id=UA-184808674-3"
     ></script>
+    <script>
+      window.dataLayer = window.dataLayer || []
+      function gtag() {
+        dataLayer.push(arguments)
+      }
+      gtag('js', new Date())
+
+      gtag('config', 'UA-184808674-3')
+    </script>
   </body>
 </html>
