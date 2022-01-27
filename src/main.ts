@@ -747,13 +747,11 @@ async function onMouseClick(e: MouseEvent) {
     newLookAtZ: -100,
   })
 
-  // console.log({ newX, newY, newZ })
   console.log({ isParentActiveUID })
   if (isParentActiveUID) {
     hitView = hitView.parentNode as View
   }
   prevView = hitView
-  // prevView.hover = false
   store.dispatch(
     setActiveItemUID(
       isParentActiveUID ? (hitView.parentNode as View).uid : hitView.uid,
