@@ -4,12 +4,14 @@ export const LAYOUT_COLUMN_MAX_WIDTH = 14
 export const CAMERA_FOV = 70
 
 let targetCameraZ = 8
+let cameraFocusOffsetZ = 5
 {
   const fov = (70 * Math.PI) / 180 // convert vertical fov to radians
   const h = 2 * Math.tan(fov / 2) * targetCameraZ // visible height
   const w = h * (innerWidth / innerHeight)
   if (LAYOUT_COLUMN_MAX_WIDTH > w) {
-    targetCameraZ *= (LAYOUT_COLUMN_MAX_WIDTH / w) * 1.1
+    targetCameraZ *= (LAYOUT_COLUMN_MAX_WIDTH / w) * 1.08
+    cameraFocusOffsetZ = 8
   }
 }
 
@@ -44,7 +46,7 @@ export const OPEN_BUTTON_MARGIN_Z = 0.3
 
 export const CAMERA_NEAR = 0.1
 export const CAMERA_FAR = 60
-export const CAMERA_FOCUS_OFFSET_Z = 5
+export const CAMERA_FOCUS_OFFSET_Z = cameraFocusOffsetZ
 export const CAMERA_BASE_Z_OFFSET = targetCameraZ
 export const CAMERA_LEVEL_Z_OFFSET = 5
 

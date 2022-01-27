@@ -62,6 +62,7 @@ import {
   BASE_PAGE_TITLE,
   CAMERA_BASE_Z_OFFSET,
   CAMERA_FAR,
+  CAMERA_FOCUS_OFFSET_Z,
   CAMERA_FOV,
   CAMERA_LEVEL_Z_OFFSET,
   CAMERA_NEAR,
@@ -597,7 +598,7 @@ async function onMouseClick(e: MouseEvent) {
     tweenCameraToPosition({
       newX: hitView.position[0],
       newY: hitView.position[1],
-      newZ: hitView.position[2] + 5,
+      newZ: hitView.position[2] + CAMERA_FOCUS_OFFSET_Z,
       positionTweenDurationMS: 600,
       positionTweenEaseName: 'quad_InOut',
       lookAtTweenDurationMS: 900,
