@@ -173,6 +173,6 @@ void main () {
 
   #ifdef SUPPORTS_FADING
     finalColor.rgb = mix(BACKGROUND_COLOR.rgb, finalColor.rgb, u_fadeMixFactor);
-    finalColor.a = mix(0.0, finalColor.a, u_opacityMixFactor);
+    finalColor.a *= u_opacityMixFactor;
   #endif
 }
