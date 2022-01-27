@@ -103,7 +103,7 @@ export default class Quad extends Drawable {
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer)
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indicesArray, gl.STATIC_DRAW)
 
-    this.cameraUBOIndex = gl.getUniformBlockIndex(this.program, 'Camera')
+    this.cameraUBOIndex = gl.getUniformBlockIndex(this.program, 'Shared')
 
     this.updateWorldMatrix()
   }

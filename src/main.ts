@@ -35,7 +35,6 @@ import {
   CameraController,
   createPlane,
   createBox,
-  OrthographicCamera,
   PerspectiveCamera,
   SceneNode,
   createAndBindUBOToBase,
@@ -86,8 +85,6 @@ import {
 import './style.css'
 import profilePicURL from './assets/profile-pic.png'
 
-// import EnvironmentBox from './meshes/environment-box'
-
 const OPTIONS = {
   cameraFreeMode: false,
 }
@@ -109,6 +106,7 @@ $app.appendChild($canvas)
 
 const gl: WebGL2RenderingContext = $canvas.getContext('webgl2', {
   antialias: true,
+  alpha: false,
 })!
 
 let oldTime = 0
@@ -126,8 +124,7 @@ const activeTweens: Map<string, Tween> = new Map()
 const debugLinesNode = new SceneNode()
 const rootNode = new SceneNode()
 const boxesRootNode = new SceneNode()
-// const environment = new EnvironmentBox(gl)
-const floor = new Floor(gl)
+
 boxesRootNode.setParent(rootNode)
 
 // Init texture atlas
@@ -160,18 +157,6 @@ if (!OPTIONS.cameraFreeMode) {
   orbitController.pause()
 }
 
-const orthographicCamera = new OrthographicCamera(
-  -innerWidth / 2,
-  innerWidth / 2,
-  innerHeight / 2,
-  -innerHeight / 2,
-  0.1,
-  20,
-)
-orthographicCamera.position = [0, 0, 1]
-orthographicCamera.lookAt = [0, 0, 0]
-orthographicCamera.updateViewMatrix().updateProjectionViewMatrix()
-
 // Set up geometries
 const cubeGeometry = createBox({
   width: CUBE_WIDTH,
@@ -195,13 +180,14 @@ const viewGeoPartialProps = {
   openButtonGeometry,
 }
 
+const floor = new Floor(gl)
 // Hover cube
 const hoverCube = new MenuBox(gl, {
   geometry: cubeGeometry,
   solidColor: [0, 0, 1, 1],
 })
 
-// Get and set up UBOs that hold perspective & ortho cameras matrices
+// Get and set up UBOs that hold shared uniforms
 const sharedUBOBlockInfo = createUniformBlockInfo(
   gl,
   hoverCube.program,
@@ -209,11 +195,6 @@ const sharedUBOBlockInfo = createUniformBlockInfo(
   ['time', 'viewMatrix', 'projectionViewMatrix'],
 )
 const sharedUBO = createAndBindUBOToBase(gl, sharedUBOBlockInfo.blockSize, 0)!
-const uboOrthographicCamera = createAndBindUBOToBase(
-  gl,
-  sharedUBOBlockInfo.blockSize,
-  1,
-)!
 
 fetch(API_ENDPOINT)
   .then((projects) => projects.json())
@@ -717,7 +698,7 @@ async function onMouseClick(e: MouseEvent) {
   // console.log('----- end')
 
   const levelIndex = hitView.levelIndex - 2 + (hitView.open ? 1 : 0)
-  console.log({ levelOffset, levelIndex })
+
   const rowHeight =
     levelOffset === -1
       ? childrenRowHeights[(hitView.parentNode as View).uid]
@@ -848,13 +829,7 @@ function updateFrame(ts: DOMHighResTimeStamp) {
 
   freeOrbitCamera.updateViewMatrix().updateProjectionViewMatrix()
 
-  gl.enable(gl.DEPTH_TEST)
-
-  gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight)
-  gl.clearColor(0.1, 0.1, 0.1, 1.0)
-  gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
-
-  // UBO for shared uniforms across all meshes
+  // UBO for shared uniforms across all meshes with persp camera
   if (sharedUBO) {
     const viewMatrix = OPTIONS.cameraFreeMode
       ? freeOrbitCamera.viewMatrix
@@ -890,21 +865,12 @@ function updateFrame(ts: DOMHighResTimeStamp) {
     )
   }
 
-  // UBO for orthographic camera projection
-  if (uboOrthographicCamera) {
-    const viewMatrix = orthographicCamera.viewMatrix
-    const projViewMatix = orthographicCamera.projectionViewMatrix
-    gl.bindBuffer(gl.UNIFORM_BUFFER, uboOrthographicCamera)
-    gl.bufferSubData(gl.UNIFORM_BUFFER, 0, viewMatrix as ArrayBufferView, 0)
-    gl.bufferSubData(
-      gl.UNIFORM_BUFFER,
-      sharedUBOBlockInfo.uniforms.projectionViewMatrix.offset,
-      projViewMatix as ArrayBufferView,
-      0,
-    )
-  }
   gl.bindBuffer(gl.UNIFORM_BUFFER, null)
 
+  gl.enable(gl.DEPTH_TEST)
+  gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight)
+
+  // gl.bindFramebuffer(gl.FRAMEBUFFER, framebufferInfo.framebuffer)
   gl.clearColor(...BACKGROUND_COLOR)
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 
