@@ -142,6 +142,8 @@ const activeTweens: Map<string, Tween> = new Map()
 const debugLinesNode = new SceneNode()
 const rootNode = new SceneNode()
 const boxesRootNode = new SceneNode()
+const opaqueMeshes: SceneNode[] = []
+const transparentMeshes: SceneNode[] = []
 
 boxesRootNode.setParent(rootNode)
 
@@ -265,6 +267,16 @@ fetch(API_ENDPOINT)
     const childrenRowHeightByView: { [key: string]: number } = {}
 
     traverseViewNodes(rootNode, (view) => {
+      if (view.projectLabelNode) {
+        transparentMeshes.push(view.projectLabelNode)
+      }
+      if (view.projectRoleNode) {
+        transparentMeshes.push(view.projectRoleNode)
+      }
+      if (view.openLabelNode) {
+        transparentMeshes.push(view.openLabelNode)
+      }
+      opaqueMeshes.push(view.projectThumbNode)
       if (view.project) {
         return
       }
@@ -920,7 +932,8 @@ function updateFrame(ts: DOMHighResTimeStamp) {
 
   if (sharedUBO) {
     floor.render()
-    rootNode.render()
+    opaqueMeshes.forEach((mesh) => mesh.render())
+    transparentMeshes.forEach((mesh) => mesh.render())
   }
 
   debugLinesNode.render()
