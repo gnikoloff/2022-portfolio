@@ -31,7 +31,10 @@
       property="og:description"
       content="Frontend developer from Berlin with interest in realtime graphics"
     />
-    <meta property="og:image" content="/src/assets/social-cover.png" />
+    <meta
+      property="og:image"
+      content="https://georgi-nikolov.com/social-cover.png"
+    />
 
     <meta property="twitter:card" content="summary_large_image" />
     <meta property="twitter:url" content="https://georgi-nikolov.com" />
@@ -40,7 +43,10 @@
       property="twitter:description"
       content="Frontend developer from Berlin with interest in realtime graphics"
     />
-    <meta property="twitter:image" content="/src/assets/social-cover.png" />
+    <meta
+      property="twitter:image"
+      content="https://georgi-nikolov.com/social-cover.png"
+    />
 
     <style>
       body {
@@ -143,6 +149,8 @@
       if (!___c) {
         const wrapper = document.getElementById('no-webgl2')
         wrapper.style.display = 'block'
+        const loader = document.getElementById('lds-dual-ring')
+        loader.style.display = 'none'
         throw new Error('no WebGL2!')
       }
     </script>
