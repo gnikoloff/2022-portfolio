@@ -91,7 +91,22 @@ const OPTIONS = {
   cameraFreeMode: false,
 }
 
-const gui = new dat.GUI()
+const gui = new dat.GUI({
+  autoPlace: false,
+})
+
+if (store.getState().ui.isDebugMode) {
+  gui.domElement.setAttribute(
+    'style',
+    `
+      position: fixed;
+      top: 0;
+      left: 0;
+      z-index: 99999;
+    `,
+  )
+  document.body.appendChild(gui.domElement)
+}
 
 gui.add(OPTIONS, 'cameraFreeMode').onChange((v) => {
   if (v) {
@@ -117,6 +132,8 @@ let prevView!: View
 let hitView!: View
 let oldActiveItemUID: string
 let prevHoverView!: View
+let cameraDebugger!: CameraDebug
+let orbitController!: CameraController
 let openButtonHoverTransition = false
 
 const timeAsFloat32 = new Float32Array(1)
@@ -130,7 +147,7 @@ const boxesRootNode = new SceneNode()
 boxesRootNode.setParent(rootNode)
 
 // Init texture atlas
-TextureAtlas.debugMode = false
+TextureAtlas.debugMode = store.getState().ui.isDebugMode
 TextureAtlas.gl = gl
 // TextureAtlas.textureFormat = gl.RGBA
 
@@ -153,10 +170,12 @@ const perspectiveCamera = new PerspectiveCamera(
 perspectiveCamera.position = [0, 0, CAMERA_BASE_Z_OFFSET]
 perspectiveCamera.lookAt = [0, 0, 0]
 
-const cameraDebugger = new CameraDebug(gl, perspectiveCamera)
-const orbitController = new CameraController(freeOrbitCamera, $canvas)
-if (!OPTIONS.cameraFreeMode) {
-  orbitController.pause()
+if (store.getState().ui.isDebugMode) {
+  cameraDebugger = new CameraDebug(gl, perspectiveCamera)
+  orbitController = new CameraController(freeOrbitCamera, $canvas)
+  if (!OPTIONS.cameraFreeMode) {
+    orbitController.pause()
+  }
 }
 
 // Set up geometries
@@ -890,8 +909,10 @@ function updateFrame(ts: DOMHighResTimeStamp) {
   gl.clearColor(...BACKGROUND_COLOR)
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 
-  if (OPTIONS.cameraFreeMode) {
-    cameraDebugger.preRender(freeOrbitCamera).render()
+  if (cameraDebugger) {
+    if (OPTIONS.cameraFreeMode) {
+      cameraDebugger.preRender(freeOrbitCamera).render()
+    }
   }
 
   if (sharedUBO) {

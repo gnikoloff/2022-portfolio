@@ -14,6 +14,7 @@ const SET_IS_CURRENTLY_TRANSITIONING_VIEW =
   'ui/SET_IS_CURRENTLY_TRANSITIONING_VIEW'
 
 export interface UIState {
+  isDebugMode: boolean
   childrenRowHeights: { [key: string]: number }
   activeItemUID: string | null
   mousePos: vec2
@@ -25,6 +26,7 @@ export interface UIState {
 }
 
 const initialState = {
+  isDebugMode: new URLSearchParams(location.search).has('debugMode'),
   childrenRowHeights: {},
   activeItemUID: null,
   mousePos: [-1000, -1000],
