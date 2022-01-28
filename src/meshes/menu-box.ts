@@ -21,7 +21,6 @@ export default class MenuBox extends Drawable {
 
   isSolidColor = false
   posterLoaded = false
-  visible = true
 
   #fadeFactor = 0
 
@@ -100,7 +99,7 @@ export default class MenuBox extends Drawable {
     })
     this.setUniform('u_opacityMixFactor', {
       type: gl.FLOAT,
-      value: 1,
+      value: 0,
     })
     this.setUniform('u_uvOffsetSizes', {
       type: gl.FLOAT_VEC4,
@@ -231,7 +230,7 @@ export default class MenuBox extends Drawable {
       gl.cullFace(this.side)
     }
 
-    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
+    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
     gl.enable(gl.BLEND)
 
     gl.activeTexture(gl.TEXTURE0)

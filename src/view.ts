@@ -39,7 +39,7 @@ export default class View extends SceneNode {
 
   open = false
   #visibilityTweenFactor = -1
-  tweenAnimMode: 0 | 1 = 0 // 0 - reveal, 1 - hide animation mode
+  tweenAnimMode: 0 | 1 = 1 // 0 - reveal, 1 - hide animation mode
 
   static ROTATION_X_AXIS_ON_OPEN = Math.PI
   static ROTATION_X_AXIS_ON_CLOSE = Math.PI
@@ -52,6 +52,7 @@ export default class View extends SceneNode {
   set visible(v: boolean) {
     if (!v && this.#visibilityTweenFactor !== 0) {
       this.visibilityTweenFactor = 0
+      // this.setScale([0, 0, 0])
     }
     this._visible = v
     const viewWrapper = this.findChild(
@@ -240,7 +241,8 @@ export default class View extends SceneNode {
       geometry: cubeGeometry,
       name,
     })
-    this.projectThumbNode.setParent(meshWrapperNode)
+      .setScale([0, 0, 0])
+      .setParent(meshWrapperNode)
 
     this.hoverThumbNode = new Cube(gl, {
       geometry: cubeGeometry,
@@ -251,7 +253,6 @@ export default class View extends SceneNode {
     const hoverScale = 1 + View.HOVER_MESH_UPSCALE_FACTOR
     this.hoverThumbNode
       .setScale([hoverScale, hoverScale, hoverScale])
-      .updateWorldMatrix()
       .setParent(meshWrapperNode)
 
     if (hasLabel) {
