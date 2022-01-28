@@ -185,20 +185,6 @@ const aboutSectionTemplateCanvas = (
   return [canvas, ctx, paddingX]
 }
 
-export const aboutSectionSingleLineCanvas = (
-  label: string,
-  text: string,
-  width = 400,
-): HTMLCanvasElement => {
-  const [canvas, ctx, paddingX] = aboutSectionTemplateCanvas(label, width)
-  ctx.fillStyle = '#fff'
-  ctx.font = `62px ${FONT_STACK}`
-  ctx.textBaseline = 'middle'
-  const yOffset = 10
-  ctx.fillText(text, paddingX, canvas.height / 2 + yOffset)
-  return canvas
-}
-
 export const aboutSectionTwoLineCanvas = (
   label: string,
   text1: string,
@@ -210,8 +196,9 @@ export const aboutSectionTwoLineCanvas = (
   ctx.font = `62px ${FONT_STACK}`
   ctx.textBaseline = 'middle'
   const metrics = ctx.measureText(text1)
+  console.log(metrics)
   const textHeight =
-    metrics.fontBoundingBoxAscent + metrics.fontBoundingBoxDescent
+    (metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent) * 1.55
   const lineHeight = textHeight
   const yOffset = 10
   ctx.fillText(text1, paddingX, canvas.height / 2 - lineHeight / 2 + yOffset)
@@ -232,9 +219,10 @@ export const aboutSectionMultilineCanvas = (
 
   const metrics = ctx.measureText(lines[0])
   const textHeight =
-    metrics.fontBoundingBoxAscent + metrics.fontBoundingBoxDescent * 1.5
+    (metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent) * 1.9
 
-  const totalHeight = textHeight * lines.length
+  const maxLinesAllowed = 3
+  const totalHeight = textHeight * maxLinesAllowed
 
   lines.forEach((text, i) => {
     ctx.fillText(
