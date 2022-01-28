@@ -41,9 +41,72 @@
       content="Frontend developer from Berlin with interest in realtime graphics"
     />
     <meta property="twitter:image" content="/src/assets/social-cover.png" />
+
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+        touch-action: pan-y;
+
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+          Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+          'Segoe UI Symbol';
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
+
+      body.hover {
+        cursor: pointer;
+      }
+
+      #no-webgl2 {
+        display: none;
+        color: white;
+        text-align: center;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        padding: 2rem;
+        box-sizing: border-box;
+      }
+      #no-webgl2 h1 {
+        font-size: 21px;
+        line-height: 33px;
+      }
+      #no-webgl2 p {
+        margin: 42px 0;
+      }
+      #no-webgl2 img {
+        max-width: 600px;
+        margin: 0 auto;
+        box-shadow: 0px 10px 20px rgba(0, 0, 0, 0.2);
+      }
+    </style>
   </head>
   <body style="background-color: rgb(25, 25, 25)">
+    <div id="no-webgl2">
+      <h1>Oh no! Your browser does not seem to support WebGL2</h1>
+      <p>Please update your browser / OS to latest version</p>
+      <img
+        id="website-render"
+        data-src="src/assets/social-cover.png"
+        alt="Website render"
+      />
+    </div>
     <div id="app"></div>
+    <script>
+      const __c = document.createElement('canvas')
+      const ___c = __c.getContext('webgl2')
+      if (!___c) {
+        const wrapper = document.getElementById('no-webgl2')
+        wrapper.style.display = 'block'
+        const img = document.getElementById('website-render')
+        img.setAttribute('src', img.getAttribute('data-src'))
+        throw new Error('no WebGL2!')
+      }
+    </script>
     <script type="module" src="/src/main.ts"></script>
     <!-- Global site tag (gtag.js) - Google Analytics -->
     <script
