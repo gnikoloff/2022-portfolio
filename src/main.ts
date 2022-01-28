@@ -294,6 +294,10 @@ store.subscribe(() => {
   oldActiveItemUID = activeItemUID
 })
 
+window.onload = () => {
+  const $loader = document.getElementById('lds-dual-ring')!
+  $loader.parentNode?.removeChild($loader)
+}
 initializeNavNodes()
 document.body.addEventListener('mousemove', onMouseMove)
 document.body.addEventListener('click', onMouseClick)

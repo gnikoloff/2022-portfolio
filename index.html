@@ -79,9 +79,31 @@
         margin: 42px 0;
       }
       #no-webgl2 img {
+        width: 100%;
         max-width: 600px;
         margin: 0 auto;
         box-shadow: 0px 10px 20px rgba(0, 0, 0, 0.2);
+      }
+      #lds-dual-ring {
+        position: fixed;
+        bottom: 0;
+        right: 0;
+        display: block;
+        width: 14px;
+        height: 14px;
+        margin: 18px;
+        border-radius: 50%;
+        border: 2px solid #fff;
+        border-color: #fff transparent #fff transparent;
+        animation: lds-dual-ring 1.2s linear infinite;
+      }
+      @keyframes lds-dual-ring {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
       }
     </style>
   </head>
@@ -89,24 +111,15 @@
     <div id="no-webgl2">
       <h1>Oh no! Your browser does not seem to support WebGL2</h1>
       <p>Please update your browser / OS to latest version</p>
+      <p>Georgi Nikolov</p>
       <img
         id="website-render"
-        data-src="src/assets/social-cover.png"
+        src="/src/assets/social-cover.png"
         alt="Website render"
       />
     </div>
+    <div id="lds-dual-ring"></div>
     <div id="app"></div>
-    <script>
-      const __c = document.createElement('canvas')
-      const ___c = __c.getContext('webgl2')
-      if (!___c) {
-        const wrapper = document.getElementById('no-webgl2')
-        wrapper.style.display = 'block'
-        const img = document.getElementById('website-render')
-        img.setAttribute('src', img.getAttribute('data-src'))
-        throw new Error('no WebGL2!')
-      }
-    </script>
     <script type="module" src="/src/main.ts"></script>
     <!-- Global site tag (gtag.js) - Google Analytics -->
     <script
@@ -114,7 +127,7 @@
       type="text/javascript"
       src="https://www.googletagmanager.com/gtag/js?id=UA-184808674-3"
     ></script>
-    <script>
+    <script type="text/javascript">
       window.dataLayer = window.dataLayer || []
       function gtag() {
         dataLayer.push(arguments)
@@ -122,6 +135,16 @@
       gtag('js', new Date())
 
       gtag('config', 'UA-184808674-3')
+    </script>
+
+    <script type="text/javascript">
+      const __c = document.createElement('canvas')
+      const ___c = __c.getContext('webgl2')
+      if (!___c) {
+        const wrapper = document.getElementById('no-webgl2')
+        wrapper.style.display = 'block'
+        throw new Error('no WebGL2!')
+      }
     </script>
   </body>
 </html>
