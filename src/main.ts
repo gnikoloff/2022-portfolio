@@ -277,6 +277,7 @@ fetch(API_ENDPOINT)
         transparentMeshes.push(view.openLabelNode)
       }
       opaqueMeshes.push(view.projectThumbNode)
+      opaqueMeshes.push(view.hoverThumbNode)
       if (view.project) {
         return
       }
