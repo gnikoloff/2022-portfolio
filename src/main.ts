@@ -84,7 +84,6 @@ import {
   TRANSITION_ROW_EASE,
 } from './constants'
 
-import './style.css'
 import profilePicURL from './assets/profile-pic.png'
 
 const OPTIONS = {
