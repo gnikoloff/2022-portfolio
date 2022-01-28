@@ -10,8 +10,8 @@ Source code for my personal website as a pure WebGL2 scene
 - [hwoa-rang-gl2](https://github.com/gnikoloff/hwoa-rang-gl2) for webgl2 render
 - [hwoa-rang-tween](https://github.com/gnikoloff/hwoa-rang-tween) for animation
 - [hwoa-rang-math](https://github.com/gnikoloff/hwoa-rang-math) for raycasting and helper math
-- [redux](https://github.com/reduxjs/redux) for state management
 - [gl-matrix](https://github.com/toji/gl-matrix) for vector and matrix math
+- [redux](https://github.com/reduxjs/redux) for state management
 
 ### References and readings
 
