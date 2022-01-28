@@ -21,7 +21,6 @@ import { SceneNode } from './lib/hwoa-rang-gl2'
  * @returns {Project[]}
  */
 export const transformProjectEntries = (entries: any): Project[] => {
-  console.log(entries)
   return entries.map((entry: any) => ({
     uid: entry.uid,
     title: entry.data.project_title[0].text,
@@ -196,7 +195,6 @@ export const aboutSectionTwoLineCanvas = (
   ctx.font = `62px ${FONT_STACK}`
   ctx.textBaseline = 'middle'
   const metrics = ctx.measureText(text1)
-  console.log(metrics)
   const textHeight =
     (metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent) * 1.55
   const lineHeight = textHeight
