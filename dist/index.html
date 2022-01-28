@@ -31,7 +31,10 @@
       property="og:description"
       content="Frontend developer from Berlin with interest in realtime graphics"
     />
-    <meta property="og:image" content="/src/assets/social-cover.png" />
+    <meta
+      property="og:image"
+      content="https://georgi-nikolov.com/social-cover.png"
+    />
 
     <meta property="twitter:card" content="summary_large_image" />
     <meta property="twitter:url" content="https://georgi-nikolov.com" />
@@ -40,7 +43,10 @@
       property="twitter:description"
       content="Frontend developer from Berlin with interest in realtime graphics"
     />
-    <meta property="twitter:image" content="/src/assets/social-cover.png" />
+    <meta
+      property="twitter:image"
+      content="https://georgi-nikolov.com/social-cover.png"
+    />
 
     <style>
       body {
@@ -79,36 +85,49 @@
         margin: 42px 0;
       }
       #no-webgl2 img {
+        width: 100%;
         max-width: 600px;
         margin: 0 auto;
         box-shadow: 0px 10px 20px rgba(0, 0, 0, 0.2);
       }
+      #lds-dual-ring {
+        position: fixed;
+        bottom: 0;
+        right: 0;
+        display: block;
+        width: 14px;
+        height: 14px;
+        margin: 18px;
+        border-radius: 50%;
+        border: 2px solid #fff;
+        border-color: #fff transparent #fff transparent;
+        animation: lds-dual-ring 1.2s linear infinite;
+      }
+      @keyframes lds-dual-ring {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
     </style>
-    <script type="module" crossorigin src="/assets/index.333966aa.js"></script>
-    <link rel="modulepreload" href="/assets/vendor.56e6dd2b.js">
+    <script type="module" crossorigin src="/assets/index.f74cae20.js"></script>
+    <link rel="modulepreload" href="/assets/vendor.636294a8.js">
   </head>
   <body style="background-color: rgb(25, 25, 25)">
     <div id="no-webgl2">
       <h1>Oh no! Your browser does not seem to support WebGL2</h1>
       <p>Please update your browser / OS to latest version</p>
+      <p>Georgi Nikolov</p>
       <img
         id="website-render"
-        data-src="src/assets/social-cover.png"
+        src="/assets/social-cover.b3889cf8.png"
         alt="Website render"
       />
     </div>
+    <div id="lds-dual-ring"></div>
     <div id="app"></div>
-    <script>
-      const __c = document.createElement('canvas')
-      const ___c = __c.getContext('webgl2')
-      if (!___c) {
-        const wrapper = document.getElementById('no-webgl2')
-        wrapper.style.display = 'block'
-        const img = document.getElementById('website-render')
-        img.setAttribute('src', img.getAttribute('data-src'))
-        throw new Error('no WebGL2!')
-      }
-    </script>
     
     <!-- Global site tag (gtag.js) - Google Analytics -->
     <script
@@ -116,7 +135,7 @@
       type="text/javascript"
       src="https://www.googletagmanager.com/gtag/js?id=UA-184808674-3"
     ></script>
-    <script>
+    <script type="text/javascript">
       window.dataLayer = window.dataLayer || []
       function gtag() {
         dataLayer.push(arguments)
@@ -124,6 +143,18 @@
       gtag('js', new Date())
 
       gtag('config', 'UA-184808674-3')
+    </script>
+
+    <script type="text/javascript">
+      const __c = document.createElement('canvas')
+      const ___c = __c.getContext('webgl2')
+      if (!___c) {
+        const wrapper = document.getElementById('no-webgl2')
+        wrapper.style.display = 'block'
+        const loader = document.getElementById('lds-dual-ring')
+        loader.style.display = 'none'
+        throw new Error('no WebGL2!')
+      }
     </script>
   </body>
 </html>
