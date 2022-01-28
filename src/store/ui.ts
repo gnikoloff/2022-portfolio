@@ -1,4 +1,4 @@
-import { vec2, vec4 } from 'gl-matrix'
+import { vec2 } from 'gl-matrix'
 import { Dispatch } from 'redux'
 import { CombinedState } from '.'
 import { ActionPayload } from '../interfaces'

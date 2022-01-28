@@ -236,6 +236,7 @@ fetch(API_ENDPOINT)
       (child) => child.name === 'blog',
     ) as View
 
+    // @ts-ignore
     const sortedYearsArr: [number, Project[]][] = Object.entries(projectsByYear)
       .map(([year, project]) => [parseInt(year, 10), project])
       .sort(([yearA], [yearB]) => (yearB as number) - (yearA as number))
