@@ -416,7 +416,7 @@ function initializeNavNodes() {
   })
   skillsNode.loadThumbnail(
     aboutSectionMultilineCanvas('skills', [
-      'Typescript',
+      'Typescript CSS',
       'WebGL WebGPU',
       'GLSL React Node.js',
     ]),
