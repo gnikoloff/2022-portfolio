@@ -15,7 +15,7 @@ let cameraFocusOffsetZ = 5
   }
 }
 
-export const API_ENDPOINT = 'https://archive.georgi-nikolov.com/api'
+export const API_ENDPOINT = 'https://georgi-nikolov.com/api'
 
 export const BASE_PAGE_TITLE = document.title
 
